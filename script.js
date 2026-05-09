@@ -216,6 +216,8 @@ const albums = [
 
 const carousel = document.querySelector("#carousel");
 const scrubber = document.querySelector(".scrubber");
+const mediaScrubber = document.querySelector("#mediaScrubber");
+const mobileMediaScrubber = document.querySelector("#mobileMediaScrubber");
 let cards = [];
 let dots = [];
 const previousButton = document.querySelector(".prev");
@@ -224,6 +226,7 @@ const meta = document.querySelector("#albumMeta");
 const siteHeader = document.querySelector(".site-header");
 const menuToggle = document.querySelector("#menuToggle");
 const musicToggle = document.querySelector("#musicToggle");
+const expandedClose = document.querySelector("#expandedClose");
 const siteNav = document.querySelector("#siteNav");
 const contactLink = document.querySelector("#contactLink");
 const contactPanel = document.querySelector("#contactPanel");
@@ -233,6 +236,7 @@ const reportPanel = document.querySelector("#reportPanel");
 const closeReportPanel = reportPanel.querySelector(".close-panel");
 const galleryPage = document.querySelector(".gallery-page");
 const desktopCopy = document.querySelector("#desktopCopy");
+const codenamePanel = document.querySelector("#codenamePanel");
 const desktopFeature = document.querySelector(".feature-picture");
 const desktopPictures = document.querySelector("#desktopPictures");
 const mobileDrawer = document.querySelector("#mobileDrawer");
@@ -245,6 +249,8 @@ let pointerStartX = 0;
 let pointerStartY = 0;
 let flipIndex = 0;
 let settleTimer;
+let wheelTimer;
+let mediaMotionTimer;
 let audioContext;
 let musicGain;
 let musicDelay;
@@ -253,24 +259,49 @@ let noiseSource;
 let noiseGain;
 let musicTimer;
 let musicStep = 0;
+let expandedMusicTimer;
+let expandedMusicStep = 0;
 let isMusicPlaying = false;
 let reportCloseTimer;
-const revealedCodenames = albums.map(() => false);
-const declassifiedCodenames = albums.map(() => false);
-const codenameClickCounts = albums.map(() => 0);
+let codenameClickCount = 0;
+let codenameClickTimer;
+let codenameAnimationTimer;
 
 const flipClasses = ["flip-left-right", "flip-right-left", "flip-up-down", "flip-down-up"];
 const verticalFlipClasses = ["flip-up-down", "flip-down-up"];
 const flipDuration = 680;
 const flipMidpoint = flipDuration / 2;
-const expandSettleDelay = 0;
-const collapseDuration = 660;
+const expandSettleDelay = 680;
+const collapseDuration = 820;
 const imageExtensions = ["jpg", "jpeg", "png", "webp"];
 const ambientProgression = [
   [174.61, 220.0, 261.63, 329.63],
   [146.83, 196.0, 246.94, 293.66],
   [164.81, 207.65, 246.94, 311.13],
   [130.81, 174.61, 220.0, 261.63],
+];
+
+const expandedProgression = [
+  [220.0, 329.63, 440.0, 659.25],
+  [246.94, 369.99, 493.88, 739.99],
+  [196.0, 293.66, 392.0, 587.33],
+  [207.65, 311.13, 415.3, 622.25],
+];
+
+const codenameWarnings = [
+  "please don't click",
+  "ok for real this time",
+  "oh now you've done it",
+];
+
+const codenameStyles = [
+  { font: "'Chiller', 'Creepster', 'Papyrus', fantasy", color: "#d8dde8", glow: "rgba(216, 221, 232, 0.72)", angle: "-8deg", stretch: "1.18" },
+  { font: "'Showcard Gothic', 'Cooper Black', 'Arial Black', fantasy", color: "#7cffb2", glow: "rgba(124, 255, 178, 0.68)", angle: "5deg", stretch: "1.08" },
+  { font: "'Jokerman', 'Curlz MT', 'Cooper Black', fantasy", color: "#ffcf5a", glow: "rgba(255, 207, 90, 0.72)", angle: "-11deg", stretch: "1.2" },
+  { font: "'Ravie', 'Wide Latin', 'Arial Black', fantasy", color: "#ff5f7a", glow: "rgba(255, 95, 122, 0.72)", angle: "8deg", stretch: "0.96" },
+  { font: "'Old English Text MT', 'Blackadder ITC', 'Georgia', serif", color: "#9fc7ff", glow: "rgba(159, 199, 255, 0.72)", angle: "-5deg", stretch: "1.12" },
+  { font: "'Algerian', 'Copperplate Gothic Bold', 'Impact', fantasy", color: "#5fe7ff", glow: "rgba(95, 231, 255, 0.7)", angle: "7deg", stretch: "1.14" },
+  { font: "'Freestyle Script', 'Brush Script MT', 'Comic Sans MS', cursive", color: "#d684ff", glow: "rgba(214, 132, 255, 0.76)", angle: "-12deg", stretch: "1.26" },
 ];
 
 function buildGalleryShell() {
@@ -285,6 +316,20 @@ function buildGalleryShell() {
     card.className = `album-card${index === activeIndex ? " active" : ""}`;
     card.dataset.index = String(index);
     cover.className = "cover";
+    cover.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (index === activeIndex) {
+        if (isExpanded) {
+          cycleActivePhoto();
+          return;
+        }
+
+        setExpanded(true);
+        return;
+      }
+
+      showAlbum(index);
+    });
     caption.className = "card-caption";
     title.textContent = album.title;
     year.textContent = album.year;
@@ -319,7 +364,7 @@ function wrappedDistance(index, active) {
 
 function renderCarousel() {
   const viewport = window.innerWidth;
-  const spacing = isExpanded ? Math.max(118, Math.min(230, viewport * 0.16)) : Math.max(104, Math.min(250, viewport * 0.19));
+  const spacing = isExpanded ? Math.max(118, Math.min(230, viewport * 0.16)) : Math.max(82, Math.min(188, viewport * 0.145));
 
   cards.forEach((card, index) => {
     const distance = wrappedDistance(index, activeIndex);
@@ -328,8 +373,8 @@ function renderCarousel() {
     const x = distance * spacing;
     const z = isExpanded && abs === 0 ? 110 : isExpanded ? -260 - abs * 54 : abs === 0 ? 90 : -120 - abs * 90;
     const rotation = abs === 0 ? 0 : direction * (isExpanded ? -46 : -54);
-    const opacity = isExpanded && abs > 2 ? 0 : isExpanded && abs > 0 ? 0.3 : abs > 2 ? 0 : abs === 2 ? 0.35 : abs === 1 ? 0.74 : 1;
-    const scale = isExpanded && abs === 0 ? 1 : isExpanded ? 0.46 : abs === 0 ? 1.16 : abs === 1 ? 0.82 : 0.68;
+    const opacity = isExpanded && abs > 2 ? 0 : isExpanded && abs > 0 ? 0.3 : abs === 3 ? 0.22 : abs === 2 ? 0.46 : abs === 1 ? 0.78 : 1;
+    const scale = isExpanded && abs === 0 ? 1 : isExpanded ? 0.46 : abs === 0 ? 1.16 : abs === 1 ? 0.84 : abs === 2 ? 0.7 : 0.58;
     const cover = card.querySelector(".cover");
     const caption = card.querySelector(".card-caption");
     const album = albums[index];
@@ -449,10 +494,10 @@ function renderCoverMediaCarousel(cover, album, albumIndex) {
   const activePhotoIndex = activePhotoIndexes[albumIndex] % items.length;
   const shouldRebuild = cover.dataset.mediaCarouselAlbum !== String(albumIndex) || cover.dataset.mediaCarouselCount !== String(items.length);
 
+  cover.dataset.visualKey = "";
   cover.classList.add("has-media", "has-media-carousel");
   cover.classList.toggle("has-video", items[activePhotoIndex]?.type === "video");
   applyPictureStyle(cover, items[activePhotoIndex]?.style || album.placeholder);
-  cover.style.setProperty("--media-index", activePhotoIndex);
   cover.style.setProperty("--media-count", items.length);
 
   if (shouldRebuild) {
@@ -466,25 +511,91 @@ function renderCoverMediaCarousel(cover, album, albumIndex) {
       const slide = document.createElement("div");
 
       slide.className = "cover-slide";
-      slide.classList.toggle("active", index === activePhotoIndex);
-      slide.setAttribute("aria-hidden", String(index !== activePhotoIndex));
+      slide.setAttribute("role", "button");
+      slide.setAttribute("aria-label", `Select picture ${index + 1} for ${album.title}`);
+      slide.addEventListener("click", (event) => {
+        const slot = Number(slide.dataset.slot) || 0;
+
+        event.stopPropagation();
+        if (slot === 0) {
+          updateActivePhoto(activePhotoIndexes[activeIndex] + 1, true, 1);
+          return;
+        }
+
+        updateActivePhoto(index, true, slot);
+      });
       applyVisual(slide, item, album.placeholder);
       track.append(slide);
     });
-  } else {
-    Array.from(cover.querySelectorAll(".cover-slide")).forEach((slide, index) => {
-      slide.classList.toggle("active", index === activePhotoIndex);
-      slide.setAttribute("aria-hidden", String(index !== activePhotoIndex));
-    });
   }
+
+  updateIntegratedMediaState(cover, activePhotoIndex, items.length);
+  renderMediaScrubber(album, activePhotoIndex, items.length);
+}
+
+function renderMediaScrubber(album, activePhotoIndex, total) {
+  renderMediaScrubberInto(mediaScrubber, album, activePhotoIndex, total);
+  renderMediaScrubberInto(mobileMediaScrubber, album, activePhotoIndex, total);
+}
+
+function renderMediaScrubberInto(container, album, activePhotoIndex, total) {
+  if (!container) return;
+
+  const shouldRebuild = container.dataset.albumIndex !== String(activeIndex) || container.children.length !== total;
+
+  container.dataset.albumIndex = String(activeIndex);
+  if (shouldRebuild) {
+    container.replaceChildren(...Array.from({ length: total }, (_, index) => {
+      const button = document.createElement("button");
+
+      button.className = "media-scrub-dot";
+      button.type = "button";
+      button.setAttribute("aria-label", `Show picture ${index + 1} for ${album.title}`);
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        updateActivePhoto(index, true, index - activePhotoIndexes[activeIndex]);
+      });
+      return button;
+    }));
+  }
+
+  Array.from(container.children).forEach((button, index) => {
+    button.classList.toggle("active", index === activePhotoIndex);
+    button.setAttribute("aria-selected", String(index === activePhotoIndex));
+  });
+}
+
+function updateIntegratedMediaState(cover, activePhotoIndex, total) {
+  const previousPhotoIndex = Number(cover.dataset.previousPhotoIndex);
+  const hasPreviousPhoto = Number.isFinite(previousPhotoIndex) && previousPhotoIndex !== activePhotoIndex;
+
+  Array.from(cover.querySelectorAll(".cover-slide")).forEach((element, index) => {
+    const slot = getPictureSlot(index, activePhotoIndex, total);
+
+    element.style.setProperty("--slot", slot);
+    element.style.setProperty("--depth", Math.max(0, 3 - Math.abs(slot)));
+    element.dataset.slot = String(slot);
+    element.classList.toggle("active", index === activePhotoIndex);
+    element.classList.toggle("leaving", hasPreviousPhoto && index === previousPhotoIndex);
+    element.setAttribute("aria-hidden", String(index !== activePhotoIndex && Math.abs(slot) > 3));
+  });
+
+  cover.dataset.activePhotoIndex = String(activePhotoIndex);
 }
 
 function applyVisual(element, item, fallbackStyle) {
   const fallbacks = [...(item.fallbacks || [])];
+  const visualKey = `${item.type}:${item.src || (item.style || fallbackStyle).join("|")}`;
 
-  element.replaceChildren();
   element.classList.toggle("has-media", item.type !== "placeholder");
   applyPictureStyle(element, item.style || fallbackStyle);
+
+  if (element.dataset.visualKey === visualKey) {
+    return;
+  }
+
+  element.replaceChildren();
+  element.dataset.visualKey = visualKey;
 
   if (item.type === "image") {
     const image = document.createElement("img");
@@ -593,8 +704,209 @@ function playBass(frequency, startTime) {
   oscillator.stop(startTime + 2.2);
 }
 
+function playExpandedPulse(frequency, startTime, index) {
+  const oscillator = audioContext.createOscillator();
+  const overtone = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  const filter = audioContext.createBiquadFilter();
+  const pan = audioContext.createStereoPanner();
+
+  oscillator.type = index % 2 ? "sawtooth" : "square";
+  overtone.type = "triangle";
+  oscillator.frequency.setValueAtTime(frequency, startTime);
+  overtone.frequency.setValueAtTime(frequency * 2.01, startTime);
+  oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.02, startTime + 0.1);
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(1320 + index * 210, startTime);
+  filter.frequency.exponentialRampToValueAtTime(760 + index * 130, startTime + 0.2);
+  filter.Q.value = 2.4;
+  pan.pan.value = (index - 1.5) * 0.22;
+  gain.gain.setValueAtTime(0.0001, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.2, startTime + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.18);
+  oscillator.connect(filter);
+  overtone.connect(filter);
+  filter.connect(pan);
+  pan.connect(gain);
+  gain.connect(musicGain);
+  gain.connect(musicDelay);
+  oscillator.start(startTime);
+  overtone.start(startTime);
+  oscillator.stop(startTime + 0.22);
+  overtone.stop(startTime + 0.22);
+}
+
+function playExpandedKick(startTime) {
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  const drive = audioContext.createWaveShaper();
+
+  drive.curve = new Float32Array([-1, -0.82, -0.34, 0, 0.34, 0.82, 1]);
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(118, startTime);
+  oscillator.frequency.exponentialRampToValueAtTime(42, startTime + 0.16);
+  gain.gain.setValueAtTime(0.0001, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.72, startTime + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.26);
+  oscillator.connect(drive);
+  drive.connect(gain);
+  gain.connect(musicGain);
+  oscillator.start(startTime);
+  oscillator.stop(startTime + 0.28);
+}
+
+function playExpandedHat(startTime, open = false) {
+  const length = Math.floor(audioContext.sampleRate * (open ? 0.12 : 0.045));
+  const buffer = audioContext.createBuffer(1, length, audioContext.sampleRate);
+  const data = buffer.getChannelData(0);
+  const source = audioContext.createBufferSource();
+  const filter = audioContext.createBiquadFilter();
+  const gain = audioContext.createGain();
+  const pan = audioContext.createStereoPanner();
+
+  for (let index = 0; index < length; index += 1) {
+    data[index] = (Math.random() * 2 - 1) * (1 - index / length);
+  }
+
+  source.buffer = buffer;
+  filter.type = "highpass";
+  filter.frequency.value = open ? 5200 : 7200;
+  pan.pan.value = open ? 0.26 : -0.18;
+  gain.gain.setValueAtTime(0.0001, startTime);
+  gain.gain.exponentialRampToValueAtTime(open ? 0.3 : 0.18, startTime + 0.006);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + (open ? 0.16 : 0.07));
+  source.connect(filter);
+  filter.connect(pan);
+  pan.connect(gain);
+  gain.connect(musicGain);
+  source.start(startTime);
+}
+
+function playExpandedBass(frequency, startTime) {
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  const filter = audioContext.createBiquadFilter();
+
+  oscillator.type = "sawtooth";
+  oscillator.frequency.setValueAtTime(frequency / 2, startTime);
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(340, startTime);
+  filter.frequency.exponentialRampToValueAtTime(160, startTime + 0.22);
+  gain.gain.setValueAtTime(0.0001, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.26, startTime + 0.018);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.32);
+  oscillator.connect(filter);
+  filter.connect(gain);
+  gain.connect(musicGain);
+  oscillator.start(startTime);
+  oscillator.stop(startTime + 0.36);
+}
+
+function scheduleExpandedPhrase() {
+  if (!isMusicPlaying || !audioContext || !isExpanded) return;
+
+  const now = audioContext.currentTime + 0.03;
+  const notes = expandedProgression[expandedMusicStep % expandedProgression.length];
+  const beat = 0.235;
+
+  notes.forEach((note, index) => {
+    const time = now + index * beat;
+
+    playExpandedPulse(note, time + (index % 2 ? 0.035 : 0), index);
+    playExpandedHat(time + beat * 0.5, index === 3);
+    if (index % 2 === 0) playExpandedKick(time);
+    if (index === 0 || index === 2) playExpandedBass(notes[0], time + 0.02);
+  });
+  expandedMusicStep += 1;
+  expandedMusicTimer = window.setTimeout(scheduleExpandedPhrase, 960);
+}
+
+function updateExpandedMusicLayer() {
+  window.clearTimeout(expandedMusicTimer);
+  if (!isMusicPlaying || !audioContext) return;
+
+  if (isExpanded) {
+    window.clearTimeout(musicTimer);
+    expandedMusicStep = 0;
+    scheduleExpandedPhrase();
+    return;
+  }
+
+  window.clearTimeout(musicTimer);
+  scheduleAmbientPhrase();
+}
+
+function playCodenameSfx(stage) {
+  if (!isMusicPlaying || !audioContext || audioContext.state !== "running") return;
+
+  const now = audioContext.currentTime;
+  const output = audioContext.createGain();
+  const oscillator = audioContext.createOscillator();
+  const drop = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  const dropGain = audioContext.createGain();
+  const filter = audioContext.createBiquadFilter();
+
+  output.gain.value = stage === 3 ? 0.95 : 0.58;
+  oscillator.type = stage === 3 ? "square" : "sine";
+  drop.type = "triangle";
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(stage === 3 ? 2400 : 1400, now);
+  filter.frequency.exponentialRampToValueAtTime(stage === 3 ? 260 : 460, now + 0.28);
+  oscillator.frequency.setValueAtTime(stage === 1 ? 420 : stage === 2 ? 520 : 150, now);
+  oscillator.frequency.exponentialRampToValueAtTime(stage === 1 ? 140 : stage === 2 ? 120 : 52, now + (stage === 3 ? 0.16 : 0.26));
+  drop.frequency.setValueAtTime(stage === 1 ? 118 : stage === 2 ? 96 : 64, now + 0.05);
+  drop.frequency.exponentialRampToValueAtTime(stage === 1 ? 62 : stage === 2 ? 48 : 34, now + 0.34);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(stage === 3 ? 0.82 : 0.48, now + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + (stage === 3 ? 0.42 : 0.32));
+  dropGain.gain.setValueAtTime(0.0001, now + 0.045);
+  dropGain.gain.exponentialRampToValueAtTime(stage === 3 ? 0.5 : 0.28, now + 0.06);
+  dropGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+  oscillator.connect(filter);
+  drop.connect(dropGain);
+  dropGain.connect(filter);
+  filter.connect(gain);
+  gain.connect(output);
+  output.connect(musicGain);
+  output.connect(musicDelay);
+  oscillator.start(now);
+  drop.start(now + 0.045);
+  oscillator.stop(now + 0.46);
+  drop.stop(now + 0.42);
+
+  if (stage === 3) {
+    const length = Math.floor(audioContext.sampleRate * 0.12);
+    const buffer = audioContext.createBuffer(1, length, audioContext.sampleRate);
+    const data = buffer.getChannelData(0);
+    const burst = audioContext.createBufferSource();
+    const burstGain = audioContext.createGain();
+    const burstFilter = audioContext.createBiquadFilter();
+
+    for (let index = 0; index < length; index += 1) {
+      data[index] = (Math.random() * 2 - 1) * (1 - index / length);
+    }
+
+    burst.buffer = buffer;
+    burstFilter.type = "bandpass";
+    burstFilter.frequency.value = 2300;
+    burstFilter.Q.value = 0.95;
+    burstGain.gain.setValueAtTime(0.0001, now + 0.1);
+    burstGain.gain.exponentialRampToValueAtTime(0.85, now + 0.112);
+    burstGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+    burst.connect(burstFilter);
+    burstFilter.connect(burstGain);
+    burstGain.connect(output);
+    burst.start(now + 0.1);
+  }
+}
+
 function scheduleAmbientPhrase() {
   if (!isMusicPlaying || !audioContext) return;
+  if (isExpanded) {
+    musicTimer = window.setTimeout(scheduleAmbientPhrase, 1000);
+    return;
+  }
 
   const now = audioContext.currentTime + 0.04;
   const chord = ambientProgression[musicStep % ambientProgression.length];
@@ -677,10 +989,12 @@ async function toggleMusic() {
     noiseGain.gain.setValueAtTime(Math.max(noiseGain.gain.value, 0.0001), now);
     noiseGain.gain.exponentialRampToValueAtTime(0.035, now + 1.1);
     scheduleAmbientPhrase();
+    updateExpandedMusicLayer();
     return;
   }
 
   window.clearTimeout(musicTimer);
+  window.clearTimeout(expandedMusicTimer);
   musicGain.gain.cancelScheduledValues(now);
   musicGain.gain.setValueAtTime(Math.max(musicGain.gain.value, 0.0001), now);
   musicGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
@@ -712,9 +1026,24 @@ function updateActivePhoto(photoIndex, shouldFlip = true, slotDirection = 0) {
   const album = albums[activeIndex];
   const cover = cards[activeIndex].querySelector(".cover");
   const mediaItems = getMediaItems(album);
-  const mediaIndex = photoIndex % mediaItems.length;
+  const mediaIndex = ((photoIndex % mediaItems.length) + mediaItems.length) % mediaItems.length;
   const previousIndex = activePhotoIndexes[activeIndex] % mediaItems.length;
   const flipClass = isExpanded ? getVerticalFlipClass(previousIndex, mediaIndex, mediaItems.length, slotDirection) : verticalFlipClasses[flipIndex % verticalFlipClasses.length];
+
+  if (isExpanded && mediaIndex !== previousIndex) {
+    const trackDirection = slotDirection || (mediaIndex > previousIndex ? 1 : -1);
+
+    cover.dataset.previousPhotoIndex = String(previousIndex);
+    cover.dataset.mediaDirection = trackDirection > 0 ? "forward" : "backward";
+    cover.classList.add("is-media-moving");
+    window.clearTimeout(mediaMotionTimer);
+    mediaMotionTimer = window.setTimeout(() => {
+      cover.classList.remove("is-media-moving");
+      delete cover.dataset.previousPhotoIndex;
+      delete cover.dataset.mediaDirection;
+      cover.querySelectorAll(".cover-slide.leaving").forEach((slide) => slide.classList.remove("leaving"));
+    }, 760);
+  }
 
   activePhotoIndexes[activeIndex] = mediaIndex;
   if (isExpanded) {
@@ -732,11 +1061,23 @@ function renderAlbumPanels(album) {
   const mediaItems = getMediaItems(album);
   const photoIndex = activePhotoIndexes[activeIndex] % mediaItems.length;
   const selectedPhoto = mediaItems[photoIndex];
-  const titleText = revealedCodenames[activeIndex] && album.codename ? album.codename : album.title;
+  const codenameStyle = codenameStyles[activeIndex % codenameStyles.length];
 
-  desktopCopy.querySelector("h2").textContent = titleText;
-  updateSecretTitle(desktopCopy.querySelector("[data-secret-title]"), album);
+  desktopCopy.querySelector("h2").textContent = album.title;
   desktopCopy.querySelector(".bike-detail").textContent = album.detail;
+  if (codenamePanel) {
+    codenamePanel.classList.remove("armed", "half-flipped", "revealed", "bounce-one", "bounce-two", "bounce-three");
+    codenamePanel.style.setProperty("--codename-color", codenameStyle.color);
+    codenamePanel.style.setProperty("--codename-glow", codenameStyle.glow);
+    codenamePanel.style.setProperty("--codename-font", codenameStyle.font);
+    codenamePanel.style.setProperty("--codename-angle", codenameStyle.angle);
+    codenamePanel.style.setProperty("--codename-stretch", codenameStyle.stretch);
+    codenamePanel.querySelector(".codename-front").textContent = codenameWarnings[0];
+    codenamePanel.querySelector(".codename-back strong").textContent = album.codename;
+    codenameClickCount = 0;
+    window.clearTimeout(codenameClickTimer);
+    window.clearTimeout(codenameAnimationTimer);
+  }
   const stats = Array.from(desktopCopy.querySelectorAll("dd"));
   stats[0].textContent = album.year;
   stats[1].textContent = album.mood;
@@ -749,104 +1090,8 @@ function renderAlbumPanels(album) {
   renderPictureButtons(desktopPictures, album, "desktop");
   renderPictureButtons(mobilePictures, album, "mobile");
 
-  document.querySelector("#mobileTitle").textContent = titleText;
-  updateSecretTitle(document.querySelector(".drawer-info [data-secret-title]"), album);
+  document.querySelector("#mobileTitle").textContent = album.title;
   document.querySelector("#mobileDetail").textContent = album.detail;
-}
-
-function updateSecretTitle(container, album) {
-  const isRevealed = Boolean(revealedCodenames[activeIndex] && album.codename);
-  const isDeclassified = Boolean(declassifiedCodenames[activeIndex] && album.codename);
-  const button = container.querySelector(".secret-peel");
-  const stamp = container.querySelector(".secret-stamp");
-  const hint = container.querySelector(".secret-hint");
-
-  container.classList.toggle("is-secret", isRevealed);
-  container.classList.remove("is-open", "is-dragging", "is-fading", "stamp-hit-1", "stamp-hit-2", "stamp-hit-3", "stamp-pop", "stamp-bump");
-  container.classList.toggle("is-declassified", isDeclassified || isRevealed);
-  button.hidden = !album.codename;
-  stamp.textContent = isDeclassified || isRevealed ? "Declassified" : "Classified";
-  hint.textContent = isDeclassified || isRevealed ? "Tap to swap the title" : "Tap the stamp three times";
-  updateSecretCounter(container);
-  button.setAttribute("aria-expanded", "false");
-  button.setAttribute("aria-label", isRevealed ? "Show motorcycle name" : "Reveal secret codename");
-}
-
-function setSecretTitleOpen(container, isOpen) {
-  const button = container.querySelector(".secret-peel");
-
-  container.classList.toggle("is-open", isOpen);
-  button.setAttribute("aria-expanded", String(isOpen));
-}
-
-function fadeSecretTitle(container, nextText, nextIsSecret) {
-  const title = container.querySelector("h2");
-  const button = container.querySelector(".secret-peel");
-  const stamp = container.querySelector(".secret-stamp");
-  const hint = container.querySelector(".secret-hint");
-
-  container.classList.add("is-fading");
-  window.setTimeout(() => {
-    title.textContent = nextText;
-    container.classList.toggle("is-secret", nextIsSecret);
-    container.classList.toggle("is-declassified", nextIsSecret || declassifiedCodenames[activeIndex]);
-    stamp.textContent = nextIsSecret || declassifiedCodenames[activeIndex] ? "Declassified" : "Classified";
-    hint.textContent = "Tap to swap the title";
-    button.setAttribute("aria-label", nextIsSecret ? "Show motorcycle name" : "Reveal secret codename");
-  }, 150);
-  window.setTimeout(() => container.classList.remove("is-fading"), 340);
-}
-
-function toggleSecretCodename(container) {
-  const album = albums[activeIndex];
-
-  if (!album.codename || !declassifiedCodenames[activeIndex]) return;
-
-  revealedCodenames[activeIndex] = !revealedCodenames[activeIndex];
-  document.querySelectorAll("[data-secret-title]").forEach((titleContainer) => {
-    fadeSecretTitle(titleContainer, revealedCodenames[activeIndex] ? album.codename : album.title, revealedCodenames[activeIndex]);
-  });
-}
-
-function pulseClassifiedStamp(container) {
-  if (declassifiedCodenames[activeIndex]) {
-    toggleSecretCodename(container);
-    return;
-  }
-
-  codenameClickCounts[activeIndex] = Math.min(3, codenameClickCounts[activeIndex] + 1);
-  document.querySelectorAll("[data-secret-title]").forEach((titleContainer) => {
-    titleContainer.classList.remove("stamp-hit-1", "stamp-hit-2", "stamp-hit-3", "stamp-bump");
-    titleContainer.classList.add(`stamp-hit-${codenameClickCounts[activeIndex]}`);
-    updateSecretCounter(titleContainer);
-    void titleContainer.offsetWidth;
-    titleContainer.classList.add("stamp-bump");
-  });
-
-  if (codenameClickCounts[activeIndex] < 3) return;
-
-  document.querySelectorAll("[data-secret-title]").forEach((titleContainer) => {
-    titleContainer.classList.add("stamp-pop");
-  });
-  window.setTimeout(() => {
-    declassifiedCodenames[activeIndex] = true;
-    document.querySelectorAll("[data-secret-title]").forEach((titleContainer) => {
-      titleContainer.classList.remove("stamp-hit-1", "stamp-hit-2", "stamp-hit-3", "stamp-pop");
-      titleContainer.classList.add("is-declassified");
-      titleContainer.querySelector(".secret-stamp").textContent = "Declassified";
-      titleContainer.querySelector(".secret-hint").textContent = "Tap to swap the title";
-      updateSecretCounter(titleContainer);
-    });
-  }, 360);
-}
-
-function updateSecretCounter(container) {
-  const dots = Array.from(container.querySelectorAll(".secret-counter span"));
-  const count = declassifiedCodenames[activeIndex] ? dots.length : codenameClickCounts[activeIndex];
-
-  dots.forEach((dot, index) => {
-    dot.classList.toggle("is-lit", index < count);
-  });
 }
 
 function getPictureSlot(index, activePhotoIndex, total) {
@@ -994,6 +1239,7 @@ function setExpanded(nextExpanded) {
   }
   window.clearTimeout(settleTimer);
   renderCarousel();
+  updateExpandedMusicLayer();
 
   if (isExpanded) {
     settleTimer = window.setTimeout(() => {
@@ -1017,76 +1263,51 @@ function cycleActivePhoto() {
   updateActivePhoto(nextPhotoIndex);
 }
 
+function advanceCodenamePanel(event) {
+  event.stopPropagation();
+  if (!isExpanded || !codenamePanel) return;
+
+  if (codenamePanel.classList.contains("revealed")) return;
+
+  codenameClickCount += 1;
+  window.clearTimeout(codenameClickTimer);
+  window.clearTimeout(codenameAnimationTimer);
+  codenamePanel.classList.remove("bounce-one", "bounce-two", "bounce-three", "half-flipped");
+  codenamePanel.querySelector(".codename-front").textContent = codenameWarnings[Math.min(codenameClickCount - 1, codenameWarnings.length - 1)];
+  void codenamePanel.offsetWidth;
+  codenamePanel.classList.add("armed", `bounce-${["one", "two", "three"][Math.min(codenameClickCount, 3) - 1]}`);
+  codenamePanel.classList.toggle("half-flipped", codenameClickCount === 2);
+  playCodenameSfx(Math.min(codenameClickCount, 3));
+
+  if (codenameClickCount >= 3) {
+    window.setTimeout(() => {
+      codenamePanel.classList.add("revealed");
+      codenamePanel.classList.remove("half-flipped", "bounce-three");
+    }, 560);
+    codenameClickCount = 0;
+    return;
+  }
+
+  codenameAnimationTimer = window.setTimeout(() => {
+    codenamePanel.classList.remove("armed", "half-flipped", "bounce-one", "bounce-two");
+    if (codenameClickCount > 0) {
+      codenamePanel.querySelector(".codename-front").textContent = codenameWarnings[Math.min(codenameClickCount, codenameWarnings.length - 1)];
+    }
+  }, codenameClickCount === 1 ? 540 : 620);
+
+  codenameClickTimer = window.setTimeout(() => {
+    codenameClickCount = 0;
+    codenamePanel.querySelector(".codename-front").textContent = codenameWarnings[0];
+    codenamePanel.classList.remove("armed", "half-flipped", "bounce-one", "bounce-two");
+  }, 950);
+}
+
 function setMobileDrawer(mode) {
   if (window.innerWidth > 720) return;
   mobileDrawer.dataset.mode = mode;
 }
 
 buildGalleryShell();
-
-document.querySelectorAll("[data-secret-title]").forEach((titleContainer) => {
-  const peel = titleContainer.querySelector(".secret-peel");
-  let dragStartY = 0;
-  let isDraggingSecret = false;
-  let suppressSecretClick = false;
-
-  titleContainer.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0 || peel.hidden) return;
-    dragStartY = event.clientY;
-    isDraggingSecret = false;
-    suppressSecretClick = false;
-    titleContainer.classList.add("is-dragging");
-    titleContainer.setPointerCapture(event.pointerId);
-  });
-
-  titleContainer.addEventListener("pointermove", (event) => {
-    if (!titleContainer.classList.contains("is-dragging")) return;
-
-    const dragDistance = Math.max(0, dragStartY - event.clientY);
-    titleContainer.style.setProperty("--peel-drag", `${Math.min(dragDistance, 64)}px`);
-    if (dragDistance > 22) {
-      isDraggingSecret = true;
-      setSecretTitleOpen(titleContainer, true);
-    }
-  });
-
-  titleContainer.addEventListener("pointerup", (event) => {
-    titleContainer.classList.remove("is-dragging");
-    titleContainer.style.removeProperty("--peel-drag");
-    if (titleContainer.hasPointerCapture(event.pointerId)) {
-      titleContainer.releasePointerCapture(event.pointerId);
-    }
-    suppressSecretClick = isDraggingSecret;
-    isDraggingSecret = false;
-  });
-
-  titleContainer.addEventListener("pointercancel", () => {
-    titleContainer.classList.remove("is-dragging");
-    titleContainer.style.removeProperty("--peel-drag");
-    isDraggingSecret = false;
-    suppressSecretClick = false;
-  });
-
-  titleContainer.addEventListener("click", (event) => {
-    if (peel.hidden) return;
-    if (!event.target.closest(".secret-title")) return;
-    event.stopPropagation();
-    event.preventDefault();
-    if (suppressSecretClick) {
-      suppressSecretClick = false;
-      return;
-    }
-
-    if (!titleContainer.classList.contains("is-open")) {
-      setSecretTitleOpen(titleContainer, true);
-      return;
-    }
-
-    if (event.target.closest(".secret-peel")) {
-      pulseClassifiedStamp(titleContainer);
-    }
-  }, true);
-});
 
 cards.forEach((card, index) => {
   card.addEventListener("click", (event) => {
@@ -1108,7 +1329,14 @@ dots.forEach((dot, index) => {
 
 previousButton.addEventListener("click", () => showAlbum(activeIndex - 1));
 nextButton.addEventListener("click", () => showAlbum(activeIndex + 1));
+expandedClose.addEventListener("click", (event) => {
+  event.stopPropagation();
+  setExpanded(false);
+});
 closeContactPanel.addEventListener("click", () => contactPanel.close());
+if (codenamePanel) {
+  codenamePanel.addEventListener("click", advanceCodenamePanel);
+}
 if (closeReportPanel) {
   closeReportPanel.addEventListener("click", () => closeReport());
 }
@@ -1243,15 +1471,40 @@ carousel.addEventListener("pointerup", (event) => {
   const deltaX = event.clientX - pointerStartX;
   const deltaY = event.clientY - pointerStartY;
 
+  if (isExpanded) {
+    if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 42) {
+      updateActivePhoto(activePhotoIndexes[activeIndex] + (deltaY < 0 ? 1 : -1), true, deltaY < 0 ? 1 : -1);
+    }
+    return;
+  }
+
   if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 54) {
     setMobileDrawer(deltaY < 0 ? "pictures" : "info");
     return;
   }
 
-  if (isExpanded) return;
   if (Math.abs(deltaX) < 48) return;
   showAlbum(activeIndex + (deltaX < 0 ? 1 : -1));
 });
+
+carousel.addEventListener("wheel", (event) => {
+  if (Math.abs(event.deltaX) < 6 && Math.abs(event.deltaY) < 6) return;
+
+  event.preventDefault();
+  if (wheelTimer) return;
+
+  if (isExpanded) {
+    const direction = event.deltaY > 0 ? 1 : -1;
+    updateActivePhoto(activePhotoIndexes[activeIndex] + direction, true, direction);
+  } else {
+    const direction = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    showAlbum(activeIndex + (direction > 0 ? 1 : -1));
+  }
+
+  wheelTimer = window.setTimeout(() => {
+    wheelTimer = null;
+  }, 520);
+}, { passive: false });
 
 window.addEventListener("resize", renderCarousel);
 
