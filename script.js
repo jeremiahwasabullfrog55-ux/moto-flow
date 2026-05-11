@@ -36,6 +36,7 @@ const albums = [
     title: "Honda CB900",
     codename: "Ten-Speed Undertaker",
     assetFolder: "assets/1980 cb900",
+    mainPanel: { type: "image", src: "assets/1980 cb900/DSC_0042.JPG" },
     blueprint: { type: "image", src: "assets/1980 cb900/blueprint.png" },
     detail: "A muscular early-eighties Honda with a clean standard silhouette, inline-four attitude, and strong restoration/custom potential.",
     year: "1980",
@@ -133,6 +134,7 @@ const albums = [
     title: "Honda Magna",
     codename: "V4 Valkyrie",
     assetFolder: "assets/1983 magna",
+    mainPanel: { type: "image", src: "assets/1983 magna/789773988.jpg" },
     detail: "A V4 muscle-cruiser with low-slung styling, strong eighties energy, and a more aggressive personality than a typical cruiser.",
     year: "1983",
     mood: "V4 Cruiser",
@@ -226,6 +228,9 @@ const meta = document.querySelector("#albumMeta");
 const siteHeader = document.querySelector(".site-header");
 const menuToggle = document.querySelector("#menuToggle");
 const musicToggle = document.querySelector("#musicToggle");
+const homeMusic = document.querySelector("#homeMusic");
+const homeContact = document.querySelector("#homeContact");
+const enterMuseum = document.querySelector("#enterMuseum");
 const expandedClose = document.querySelector("#expandedClose");
 const siteNav = document.querySelector("#siteNav");
 const contactLink = document.querySelector("#contactLink");
@@ -262,10 +267,36 @@ let musicStep = 0;
 let expandedMusicTimer;
 let expandedMusicStep = 0;
 let isMusicPlaying = false;
+let isUsingCustomTrack = false;
 let reportCloseTimer;
 let codenameClickCount = 0;
 let codenameClickTimer;
 let codenameAnimationTimer;
+const doorDurationMs = 1250;
+const doorSoundOffsetSeconds = 2;
+const doorSoundTailMs = 450;
+const whooshSoundOffsetSeconds = 0.14;
+let backgroundTrackName = "main";
+let activeBackgroundTrack = null;
+let secretDiscoTimer;
+
+const audioLibrary = {
+  background: {
+    main: new Audio("music/main.mp3"),
+    expanded: new Audio("music/expanded.mp3"),
+    report: new Audio("music/report.mp3"),
+    secret: new Audio("music/secretname.mp3"),
+  },
+  sfx: {
+    whoosh: new Audio("music/whoosh.mp3"),
+    slap: new Audio("music/slap.mp3"),
+    boom: new Audio("music/boom.mp3"),
+    garage: new Audio("music/garage door.mp3"),
+    open: new Audio("music/open.ogg"),
+    close: new Audio("music/close.ogg"),
+    toggleMusic: new Audio("music/togglemusic.ogg"),
+  },
+};
 
 const flipClasses = ["flip-left-right", "flip-right-left", "flip-up-down", "flip-down-up"];
 const verticalFlipClasses = ["flip-up-down", "flip-down-up"];
@@ -280,6 +311,25 @@ const ambientProgression = [
   [164.81, 207.65, 246.94, 311.13],
   [130.81, 174.61, 220.0, 261.63],
 ];
+
+Object.values(audioLibrary.background).forEach((track) => {
+  track.loop = true;
+  track.preload = "auto";
+  track.volume = 0.62;
+});
+
+audioLibrary.background.main.volume = 0.2;
+
+Object.values(audioLibrary.sfx).forEach((track) => {
+  track.preload = "auto";
+  track.volume = 0.82;
+});
+
+audioLibrary.sfx.boom.volume = 0.95;
+audioLibrary.sfx.garage.volume = 0.72;
+audioLibrary.sfx.open.volume = 0.78;
+audioLibrary.sfx.close.volume = 0.78;
+audioLibrary.sfx.toggleMusic.volume = 0.74;
 
 const expandedProgression = [
   [220.0, 329.63, 440.0, 659.25],
@@ -320,6 +370,7 @@ function buildGalleryShell() {
       event.stopPropagation();
       if (index === activeIndex) {
         if (isExpanded) {
+          if (window.matchMedia("(max-width: 980px)").matches) return;
           cycleActivePhoto();
           return;
         }
@@ -335,7 +386,7 @@ function buildGalleryShell() {
     year.textContent = album.year;
     reflection.className = "reflection";
     caption.append(title, year);
-    card.append(cover, caption, reflection);
+    card.append(cover, reflection, caption);
     return card;
   }));
 
@@ -377,6 +428,7 @@ function renderCarousel() {
     const scale = isExpanded && abs === 0 ? 1 : isExpanded ? 0.46 : abs === 0 ? 1.16 : abs === 1 ? 0.84 : abs === 2 ? 0.7 : 0.58;
     const cover = card.querySelector(".cover");
     const caption = card.querySelector(".card-caption");
+    const reflection = card.querySelector(".reflection");
     const album = albums[index];
     const mediaItems = getMediaItems(album);
     const mediaIndex = activePhotoIndexes[index] % mediaItems.length;
@@ -400,6 +452,7 @@ function renderCarousel() {
       cover.classList.remove("has-media-carousel", "has-video");
       applyVisual(cover, mediaItems[mediaIndex], album.placeholder);
     }
+    renderReflection(reflection, mediaItems[mediaIndex], album.placeholder, cover);
     cover.classList.add("is-selected-photo");
   });
 
@@ -418,6 +471,7 @@ function renderCarousel() {
 
 function showAlbum(index) {
   if (isExpanded) return;
+  playSfx(audioLibrary.sfx.whoosh, { offset: whooshSoundOffsetSeconds });
   activeIndex = (index + albums.length) % albums.length;
   galleryPage.classList.add("is-changing");
   renderCarousel();
@@ -514,9 +568,10 @@ function renderCoverMediaCarousel(cover, album, albumIndex) {
       slide.setAttribute("role", "button");
       slide.setAttribute("aria-label", `Select picture ${index + 1} for ${album.title}`);
       slide.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (window.matchMedia("(max-width: 980px)").matches) return;
         const slot = Number(slide.dataset.slot) || 0;
 
-        event.stopPropagation();
         if (slot === 0) {
           updateActivePhoto(activePhotoIndexes[activeIndex] + 1, true, 1);
           return;
@@ -639,6 +694,86 @@ function applyVisual(element, item, fallbackStyle) {
     }, { once: true });
     element.append(video);
     syncVideoPlayback();
+  }
+}
+
+function renderReflection(element, item, fallbackStyle, sourceElement) {
+  if (!element) return;
+
+  const visualKey = `${item.type}:${item.src || (item.style || fallbackStyle).join("|")}`;
+  const sourceMedia = sourceElement?.querySelector(":scope > img, :scope > video");
+  const hasRenderedMedia = element.querySelector("img, video");
+
+  element.classList.toggle("has-media", item.type !== "placeholder");
+  applyPictureStyle(element, item.style || fallbackStyle);
+
+  if (element.dataset.visualKey === visualKey && hasRenderedMedia) {
+    return;
+  }
+
+  element.replaceChildren();
+  element.dataset.visualKey = visualKey;
+
+  if (sourceMedia && item.type === "video") {
+    const clone = sourceMedia.cloneNode();
+
+    clone.removeAttribute("controls");
+    clone.removeAttribute("autoplay");
+    clone.removeAttribute("loading");
+    clone.setAttribute("aria-hidden", "true");
+
+    if (clone.tagName === "IMG") {
+      clone.decoding = "async";
+      clone.loading = "eager";
+    }
+
+    if (clone.tagName === "VIDEO") {
+      clone.muted = true;
+      clone.loop = true;
+      clone.playsInline = true;
+      clone.autoplay = true;
+      clone.preload = "metadata";
+      clone.play?.().catch(() => {});
+    }
+
+    element.append(clone);
+    return;
+  }
+
+  if (item.type === "image") {
+    const image = document.createElement("img");
+
+    image.src = encodeURI(item.src);
+    image.alt = "";
+    image.loading = "eager";
+    image.decoding = "async";
+    image.addEventListener("error", () => {
+      const fallback = item.fallbacks?.[0];
+
+      if (fallback) {
+        renderReflection(element, { ...fallback, fallbacks: item.fallbacks.slice(1) }, fallbackStyle, sourceElement);
+        return;
+      }
+
+      renderReflection(element, { type: "placeholder", style: fallbackStyle }, fallbackStyle, sourceElement);
+    }, { once: true });
+    element.append(image);
+  }
+
+  if (item.type === "video") {
+    const video = document.createElement("video");
+
+    video.src = encodeURI(item.src);
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.autoplay = true;
+    video.preload = "metadata";
+    video.addEventListener("error", () => {
+      renderReflection(element, { type: "placeholder", style: fallbackStyle }, fallbackStyle);
+    }, { once: true });
+    element.append(video);
+    video.play().catch(() => {});
   }
 }
 
@@ -824,6 +959,7 @@ function scheduleExpandedPhrase() {
 function updateExpandedMusicLayer() {
   window.clearTimeout(expandedMusicTimer);
   if (!isMusicPlaying || !audioContext) return;
+  if (isUsingCustomTrack) return;
 
   if (isExpanded) {
     window.clearTimeout(musicTimer);
@@ -836,47 +972,158 @@ function updateExpandedMusicLayer() {
   scheduleAmbientPhrase();
 }
 
+function syncMusicButtons() {
+  musicToggle.setAttribute("aria-pressed", String(isMusicPlaying));
+  musicToggle.setAttribute("aria-label", isMusicPlaying ? "Turn music off" : "Turn music on");
+  if (homeMusic) {
+    homeMusic.setAttribute("aria-pressed", String(isMusicPlaying));
+    homeMusic.textContent = isMusicPlaying ? "Music On" : "Toggle Music";
+  }
+}
+
+function playSfx(audio, { restart = true, offset = 0 } = {}) {
+  if (!audio) return;
+  const instance = audio.cloneNode();
+  instance.volume = audio.volume;
+  if (offset > 0) {
+    instance.currentTime = offset;
+  } else if (!restart) {
+    instance.currentTime = audio.currentTime;
+  }
+  instance.play().catch(() => {});
+}
+
+function playDoorSfx() {
+  const instance = audioLibrary.sfx.garage.cloneNode();
+  instance.volume = audioLibrary.sfx.garage.volume;
+  instance.currentTime = doorSoundOffsetSeconds;
+  instance.play().catch(() => {});
+  window.setTimeout(() => {
+    instance.pause();
+    instance.currentTime = 0;
+  }, doorDurationMs + doorSoundTailMs);
+}
+
+function playOpenSfx() {
+  playSfx(audioLibrary.sfx.open);
+}
+
+function playCloseSfx() {
+  playSfx(audioLibrary.sfx.close);
+}
+
+function showContactPanel() {
+  playOpenSfx();
+  if (typeof contactPanel.showModal === "function") {
+    contactPanel.showModal();
+  } else {
+    contactPanel.setAttribute("open", "");
+  }
+}
+
+function closeContact() {
+  if (!contactPanel.open) return;
+  playCloseSfx();
+  contactPanel.close();
+}
+
+function stopBackgroundTracks() {
+  Object.values(audioLibrary.background).forEach((track) => {
+    track.pause();
+    track.currentTime = 0;
+  });
+  activeBackgroundTrack = null;
+}
+
+function setBackgroundTrack(trackName, { restart = false } = {}) {
+  backgroundTrackName = trackName;
+  const nextTrack = audioLibrary.background[trackName] || audioLibrary.background.main;
+
+  if (!isMusicPlaying) {
+    stopBackgroundTracks();
+    return;
+  }
+
+  if (activeBackgroundTrack === nextTrack && !restart && !nextTrack.paused) return;
+
+  stopBackgroundTracks();
+  activeBackgroundTrack = nextTrack;
+  if (restart) activeBackgroundTrack.currentTime = 0;
+  activeBackgroundTrack.play().catch(() => {});
+}
+
+function currentSectionTrack() {
+  if (document.body.classList.contains("is-secret-disco")) return "secret";
+  if (reportPanel.open) return "report";
+  if (isExpanded) return "expanded";
+  return "main";
+}
+
+function currentSectionTrackWithoutSecret() {
+  if (reportPanel.open) return "report";
+  if (isExpanded) return "expanded";
+  return "main";
+}
+
+function clearSecretMode({ restoreTrack = true } = {}) {
+  const wasSecretMode =
+    document.body.classList.contains("is-secret-disco") ||
+    backgroundTrackName === "secret" ||
+    activeBackgroundTrack === audioLibrary.background.secret;
+
+  document.body.classList.remove("is-secret-disco");
+  window.clearTimeout(secretDiscoTimer);
+
+  if (restoreTrack && wasSecretMode) {
+    setBackgroundTrack(currentSectionTrackWithoutSecret());
+  }
+}
+
+function triggerSecretDisco() {
+  document.body.classList.add("is-secret-disco");
+  window.clearTimeout(secretDiscoTimer);
+}
+
 function playCodenameSfx(stage) {
   if (!isMusicPlaying || !audioContext || audioContext.state !== "running") return;
 
   const now = audioContext.currentTime;
   const output = audioContext.createGain();
-  const oscillator = audioContext.createOscillator();
-  const drop = audioContext.createOscillator();
-  const gain = audioContext.createGain();
-  const dropGain = audioContext.createGain();
-  const filter = audioContext.createBiquadFilter();
+  const rev = audioContext.createOscillator();
+  const rasp = audioContext.createOscillator();
+  const revGain = audioContext.createGain();
+  const revFilter = audioContext.createBiquadFilter();
 
-  output.gain.value = stage === 3 ? 0.95 : 0.58;
-  oscillator.type = stage === 3 ? "square" : "sine";
-  drop.type = "triangle";
-  filter.type = "lowpass";
-  filter.frequency.setValueAtTime(stage === 3 ? 2400 : 1400, now);
-  filter.frequency.exponentialRampToValueAtTime(stage === 3 ? 260 : 460, now + 0.28);
-  oscillator.frequency.setValueAtTime(stage === 1 ? 420 : stage === 2 ? 520 : 150, now);
-  oscillator.frequency.exponentialRampToValueAtTime(stage === 1 ? 140 : stage === 2 ? 120 : 52, now + (stage === 3 ? 0.16 : 0.26));
-  drop.frequency.setValueAtTime(stage === 1 ? 118 : stage === 2 ? 96 : 64, now + 0.05);
-  drop.frequency.exponentialRampToValueAtTime(stage === 1 ? 62 : stage === 2 ? 48 : 34, now + 0.34);
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(stage === 3 ? 0.82 : 0.48, now + 0.012);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + (stage === 3 ? 0.42 : 0.32));
-  dropGain.gain.setValueAtTime(0.0001, now + 0.045);
-  dropGain.gain.exponentialRampToValueAtTime(stage === 3 ? 0.5 : 0.28, now + 0.06);
-  dropGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
-  oscillator.connect(filter);
-  drop.connect(dropGain);
-  dropGain.connect(filter);
-  filter.connect(gain);
-  gain.connect(output);
+  output.gain.value = stage === 3 ? 1.05 : 0.82;
+  rev.type = "sawtooth";
+  rasp.type = "square";
+  revFilter.type = "bandpass";
+  revFilter.frequency.setValueAtTime(stage === 3 ? 860 : 720, now);
+  revFilter.Q.value = stage === 3 ? 2.6 : 1.9;
+  rev.frequency.setValueAtTime(stage === 1 ? 72 : stage === 2 ? 86 : 96, now);
+  rev.frequency.exponentialRampToValueAtTime(stage === 1 ? 170 : stage === 2 ? 240 : 310, now + 0.16);
+  rev.frequency.exponentialRampToValueAtTime(stage === 1 ? 96 : stage === 2 ? 118 : 62, now + 0.36);
+  rasp.frequency.setValueAtTime(stage === 1 ? 144 : stage === 2 ? 172 : 192, now);
+  rasp.frequency.exponentialRampToValueAtTime(stage === 1 ? 340 : stage === 2 ? 480 : 620, now + 0.16);
+  rasp.frequency.exponentialRampToValueAtTime(stage === 1 ? 190 : stage === 2 ? 220 : 88, now + 0.36);
+  revGain.gain.setValueAtTime(0.0001, now);
+  revGain.gain.exponentialRampToValueAtTime(stage === 3 ? 0.62 : 0.48, now + 0.018);
+  revGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+  rev.connect(revFilter);
+  rasp.connect(revFilter);
+  revFilter.connect(revGain);
+  revGain.connect(output);
   output.connect(musicGain);
   output.connect(musicDelay);
-  oscillator.start(now);
-  drop.start(now + 0.045);
-  oscillator.stop(now + 0.46);
-  drop.stop(now + 0.42);
+  rev.start(now);
+  rasp.start(now);
+  rev.stop(now + 0.45);
+  rasp.stop(now + 0.45);
 
   if (stage === 3) {
-    const length = Math.floor(audioContext.sampleRate * 0.12);
+    const boom = audioContext.createOscillator();
+    const boomGain = audioContext.createGain();
+    const length = Math.floor(audioContext.sampleRate * 0.36);
     const buffer = audioContext.createBuffer(1, length, audioContext.sampleRate);
     const data = buffer.getChannelData(0);
     const burst = audioContext.createBufferSource();
@@ -888,21 +1135,33 @@ function playCodenameSfx(stage) {
     }
 
     burst.buffer = buffer;
-    burstFilter.type = "bandpass";
-    burstFilter.frequency.value = 2300;
-    burstFilter.Q.value = 0.95;
-    burstGain.gain.setValueAtTime(0.0001, now + 0.1);
-    burstGain.gain.exponentialRampToValueAtTime(0.85, now + 0.112);
-    burstGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+    boom.type = "sine";
+    boom.frequency.setValueAtTime(82, now + 0.12);
+    boom.frequency.exponentialRampToValueAtTime(34, now + 0.52);
+    boomGain.gain.setValueAtTime(0.0001, now + 0.1);
+    boomGain.gain.exponentialRampToValueAtTime(0.9, now + 0.13);
+    boomGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.62);
+    burstFilter.type = "lowpass";
+    burstFilter.frequency.setValueAtTime(3600, now + 0.12);
+    burstFilter.frequency.exponentialRampToValueAtTime(520, now + 0.5);
+    burstFilter.Q.value = 0.7;
+    burstGain.gain.setValueAtTime(0.0001, now + 0.12);
+    burstGain.gain.exponentialRampToValueAtTime(1.0, now + 0.135);
+    burstGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.58);
+    boom.connect(boomGain);
+    boomGain.connect(output);
     burst.connect(burstFilter);
     burstFilter.connect(burstGain);
     burstGain.connect(output);
-    burst.start(now + 0.1);
+    boom.start(now + 0.12);
+    boom.stop(now + 0.66);
+    burst.start(now + 0.12);
   }
 }
 
 function scheduleAmbientPhrase() {
   if (!isMusicPlaying || !audioContext) return;
+  if (isUsingCustomTrack) return;
   if (isExpanded) {
     musicTimer = window.setTimeout(scheduleAmbientPhrase, 1000);
     return;
@@ -910,23 +1169,23 @@ function scheduleAmbientPhrase() {
 
   const now = audioContext.currentTime + 0.04;
   const chord = ambientProgression[musicStep % ambientProgression.length];
-  const chordStart = now + (Math.random() * 0.08);
+  const step = 0.28;
 
   chord.forEach((note, index) => {
-    playLofiNote(note, chordStart + index * 0.035, 5.4 + index * 0.28, index === 0 ? 0.055 : 0.045);
+    playExpandedPulse(note * (index > 1 ? 2 : 1), now + index * step, index);
   });
 
-  playBass(chord[0], now + 0.15);
+  playExpandedBass(chord[0], now + 0.02);
   if (musicStep % 2 === 0) {
-    playBass(chord[0] * 0.75, now + 2.45);
+    playExpandedHat(now + step * 2.5, true);
   }
 
   if (musicStep % 3 === 1) {
-    playLofiNote(chord[2] * 2, now + 3.2, 3.8, 0.026);
+    playExpandedPulse(chord[2] * 3, now + step * 3.5, 2);
   }
 
   musicStep += 1;
-  const nextDelay = 5600 + Math.random() * 1200;
+  const nextDelay = 2200 + Math.random() * 450;
   musicTimer = window.setTimeout(scheduleAmbientPhrase, nextDelay);
 }
 
@@ -972,35 +1231,26 @@ function ensureMusicGraph() {
 }
 
 async function toggleMusic() {
-  ensureMusicGraph();
-  await audioContext.resume();
-
-  const now = audioContext.currentTime;
+  playSfx(audioLibrary.sfx.toggleMusic);
   isMusicPlaying = !isMusicPlaying;
-  musicToggle.setAttribute("aria-pressed", String(isMusicPlaying));
-  musicToggle.setAttribute("aria-label", isMusicPlaying ? "Turn music off" : "Turn music on");
+  syncMusicButtons();
 
   if (isMusicPlaying) {
-    musicStep = 0;
-    musicGain.gain.cancelScheduledValues(now);
-    musicGain.gain.setValueAtTime(Math.max(musicGain.gain.value, 0.0001), now);
-    musicGain.gain.exponentialRampToValueAtTime(0.58, now + 0.85);
-    noiseGain.gain.cancelScheduledValues(now);
-    noiseGain.gain.setValueAtTime(Math.max(noiseGain.gain.value, 0.0001), now);
-    noiseGain.gain.exponentialRampToValueAtTime(0.035, now + 1.1);
-    scheduleAmbientPhrase();
-    updateExpandedMusicLayer();
+    isUsingCustomTrack = true;
+    setBackgroundTrack(currentSectionTrack(), { restart: false });
     return;
   }
 
   window.clearTimeout(musicTimer);
   window.clearTimeout(expandedMusicTimer);
-  musicGain.gain.cancelScheduledValues(now);
-  musicGain.gain.setValueAtTime(Math.max(musicGain.gain.value, 0.0001), now);
-  musicGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
-  noiseGain.gain.cancelScheduledValues(now);
-  noiseGain.gain.setValueAtTime(Math.max(noiseGain.gain.value, 0.0001), now);
-  noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
+  isUsingCustomTrack = false;
+  stopBackgroundTracks();
+  Object.values(audioLibrary.sfx).forEach((track) => {
+    track.pause();
+    track.currentTime = 0;
+  });
+  document.body.classList.remove("is-secret-disco");
+  window.clearTimeout(secretDiscoTimer);
 }
 
 function animatePhotoFlip(cover, swapFace, flipClass) {
@@ -1033,6 +1283,7 @@ function updateActivePhoto(photoIndex, shouldFlip = true, slotDirection = 0) {
   if (isExpanded && mediaIndex !== previousIndex) {
     const trackDirection = slotDirection || (mediaIndex > previousIndex ? 1 : -1);
 
+    playSfx(audioLibrary.sfx.whoosh, { offset: whooshSoundOffsetSeconds });
     cover.dataset.previousPhotoIndex = String(previousIndex);
     cover.dataset.mediaDirection = trackDirection > 0 ? "forward" : "backward";
     cover.classList.add("is-media-moving");
@@ -1066,6 +1317,9 @@ function renderAlbumPanels(album) {
   desktopCopy.querySelector("h2").textContent = album.title;
   desktopCopy.querySelector(".bike-detail").textContent = album.detail;
   if (codenamePanel) {
+    if (codenamePanel.classList.contains("revealed") || document.body.classList.contains("is-secret-disco")) {
+      clearSecretMode();
+    }
     codenamePanel.classList.remove("armed", "half-flipped", "revealed", "bounce-one", "bounce-two", "bounce-three");
     codenamePanel.style.setProperty("--codename-color", codenameStyle.color);
     codenamePanel.style.setProperty("--codename-glow", codenameStyle.glow);
@@ -1227,10 +1481,16 @@ function renderInfographic(album) {
 
 function setExpanded(nextExpanded) {
   const wasExpanded = isExpanded;
+  if (nextExpanded === wasExpanded) return;
 
+  playSfx(nextExpanded ? audioLibrary.sfx.open : audioLibrary.sfx.close);
   isExpanded = nextExpanded;
+  if (!nextExpanded) {
+    clearSecretMode({ restoreTrack: false });
+  }
   mobileDrawer.dataset.mode = "none";
   galleryPage.classList.remove("is-settled");
+  setBackgroundTrack(nextExpanded ? "expanded" : "main");
   if (nextExpanded) {
     galleryPage.classList.remove("is-collapsing");
   }
@@ -1277,12 +1537,19 @@ function advanceCodenamePanel(event) {
   void codenamePanel.offsetWidth;
   codenamePanel.classList.add("armed", `bounce-${["one", "two", "three"][Math.min(codenameClickCount, 3) - 1]}`);
   codenamePanel.classList.toggle("half-flipped", codenameClickCount === 2);
-  playCodenameSfx(Math.min(codenameClickCount, 3));
+  if (codenameClickCount >= 3) {
+    playSfx(audioLibrary.sfx.boom);
+  } else {
+    playSfx(audioLibrary.sfx.slap);
+  }
 
   if (codenameClickCount >= 3) {
     window.setTimeout(() => {
       codenamePanel.classList.add("revealed");
       codenamePanel.classList.remove("half-flipped", "bounce-three");
+      window.clearTimeout(secretDiscoTimer);
+      setBackgroundTrack("secret", { restart: true });
+      triggerSecretDisco();
     }, 560);
     codenameClickCount = 0;
     return;
@@ -1333,7 +1600,7 @@ expandedClose.addEventListener("click", (event) => {
   event.stopPropagation();
   setExpanded(false);
 });
-closeContactPanel.addEventListener("click", () => contactPanel.close());
+closeContactPanel.addEventListener("click", closeContact);
 if (codenamePanel) {
   codenamePanel.addEventListener("click", advanceCodenamePanel);
 }
@@ -1356,9 +1623,63 @@ menuToggle.addEventListener("click", () => {
 });
 
 musicToggle.addEventListener("click", toggleMusic);
+if (homeMusic) {
+  homeMusic.addEventListener("click", toggleMusic);
+}
+if (homeContact) {
+  homeContact.addEventListener("click", () => {
+    showContactPanel();
+  });
+}
+
+function openMuseum() {
+  if (document.body.classList.contains("is-museum-open") || document.body.classList.contains("is-entering-museum")) return;
+  document.body.classList.remove("is-returning-home");
+  document.body.classList.add("is-museum-open", "is-entering-museum");
+  playDoorSfx();
+  setBackgroundTrack("main");
+  renderCarousel();
+  window.setTimeout(() => {
+    document.body.classList.remove("is-entering-museum");
+  }, doorDurationMs);
+}
+
+function closeMuseum() {
+  if (!document.body.classList.contains("is-museum-open") || document.body.classList.contains("is-returning-home")) return;
+  if (isExpanded) {
+    setExpanded(false);
+  }
+  closeReport();
+  document.body.classList.remove("is-entering-museum");
+  document.body.classList.add("is-returning-home");
+  playDoorSfx();
+  window.requestAnimationFrame(() => {
+    document.body.classList.remove("is-museum-open");
+  });
+  window.setTimeout(() => {
+    document.body.classList.remove("is-returning-home");
+    setBackgroundTrack("main");
+  }, doorDurationMs);
+}
+
+if (enterMuseum) {
+  enterMuseum.addEventListener("click", () => {
+    openMuseum();
+  });
+}
 
 siteNav.addEventListener("click", (event) => {
-  if (!event.target.closest("a")) return;
+  const link = event.target.closest("a");
+
+  if (!link) return;
+  if (link.getAttribute("href") === "#gallery") {
+    event.preventDefault();
+    openMuseum();
+  }
+  if (link.getAttribute("href") === "#home") {
+    event.preventDefault();
+    closeMuseum();
+  }
 
   siteHeader.classList.remove("is-open");
   menuToggle.setAttribute("aria-expanded", "false");
@@ -1370,11 +1691,7 @@ contactLink.addEventListener("click", () => {
   menuToggle.setAttribute("aria-expanded", "false");
   menuToggle.setAttribute("aria-label", "Open navigation");
 
-  if (typeof contactPanel.showModal === "function") {
-    contactPanel.showModal();
-  } else {
-    contactPanel.setAttribute("open", "");
-  }
+  showContactPanel();
 });
 
 contactPanel.addEventListener("click", (event) => {
@@ -1385,11 +1702,14 @@ contactPanel.addEventListener("click", (event) => {
     event.clientY >= dialogBox.top &&
     event.clientY <= dialogBox.bottom;
 
-  if (!isInDialog) contactPanel.close();
+  if (!isInDialog) closeContact();
 });
 
 function openReport() {
   const album = albums[activeIndex];
+  playOpenSfx();
+  clearSecretMode({ restoreTrack: false });
+  setBackgroundTrack("report", { restart: true });
 
   document.querySelector("#reportHistory").textContent = album.report.history;
   renderInfographic(album);
@@ -1422,12 +1742,14 @@ function openReport() {
 
 function closeReport() {
   if (!reportPanel.open || reportPanel.classList.contains("is-closing")) return;
+  playCloseSfx();
   window.clearTimeout(reportCloseTimer);
   reportPanel.classList.remove("is-open");
   reportPanel.classList.add("is-closing");
   reportCloseTimer = window.setTimeout(() => {
     reportPanel.classList.remove("is-closing");
     reportPanel.close();
+    setBackgroundTrack(currentSectionTrack());
   }, 320);
 }
 
