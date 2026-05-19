@@ -4,7 +4,7 @@ const albums = [
     title: "Honda Goldwing",
     codename: "The Flatliner",
     assetFolder: "assets/1970 gl000 goldwing",
-    mainPanel: { type: "image", src: "assets/1970 gl000 goldwing/mainpanel.jpg" },
+    mainPanel: { type: "image", src: "assets/1970 gl000 goldwing/mainpanel.JPG" },
     blueprint: { type: "image", src: "assets/1970 gl000 goldwing/blueprint.png" },
     detail: "A vintage Goldwing touring platform with big-road character, built around smooth presence and classic Honda heft.",
     year: "1979",
@@ -25,9 +25,16 @@ const albums = [
       features: [["Only one of its era", "Honda described the GL1000 as using the only four-stroke horizontally opposed four-cylinder motorcycle engine of its time."], ["Flagship before dresser", "It began as Honda's high-speed flagship, then riders turned it into the grand touring icon."], ["Under-seat fuel tank", "Moving fuel mass under the seat lowered the center of gravity and freed the top shelter for electrics."], ["Shaft-drive tourer", "The enclosed final drive matched the long-distance mission before the Gold Wing became fully dressed."], ["Flat-four blueprint", "The low, wide engine layout became the mechanical identity every later Wing evolved from."]],
     },
     media: [
+      { type: "image", src: "assets/1970 gl000 goldwing/mainpanel.JPG" },
+      { type: "image", src: "assets/1970 gl000 goldwing/DSC_0125.JPG" },
+      { type: "image", src: "assets/1970 gl000 goldwing/DSC_0144.JPG" },
+      { type: "image", src: "assets/1970 gl000 goldwing/DSC_0156.JPG" },
+      { type: "image", src: "assets/1970 gl000 goldwing/DSC_0165.JPG" },
+      { type: "image", src: "assets/1970 gl000 goldwing/DSC_0176.JPG" },
+      { type: "image", src: "assets/1970 gl000 goldwing/7.JPG" },
+      { type: "image", src: "assets/1970 gl000 goldwing/9.JPG" },
       { type: "video", src: "assets/1970 gl000 goldwing/IMG_5510.MOV" },
       { type: "video", src: "assets/1970 gl000 goldwing/signal-2026-03-30-17-02-46-909~2.mp4" },
-      { type: "image", src: "assets/1970 gl000 goldwing/signal-2026-03-30-17-02-56-168.jpg" },
     ],
     placeholder: ["#27484d", "#76a68f", "#e0c66b", "radial-gradient(circle at 50% 50%, #f6f0c7 0 18%, transparent 19%)", "repeating-linear-gradient(90deg, rgba(255,255,255,.12) 0 2px, transparent 2px 14px)"],
   },
@@ -210,6 +217,8 @@ const albums = [
       features: [["Small-bike contrast", "The JL250P is interesting here because it sits against heavy vintage tourers and cruisers, not beside similar bikes."], ["Approachable platform", "Its 250-class hardware makes the project about usability, sorting, and reliability instead of era-defining horsepower."], ["Simple systems story", "The mechanical appeal is the repair path: straightforward drivetrain, easy access, and visible service wins."], ["Modern budget build", "Unlike the vintage Japanese bikes, its history is less factory legend and more owner-documented improvement."], ["Lightweight reference", "It gives the gallery a useful baseline for weight, packaging, and everyday practicality."]],
     },
     media: [
+      { type: "image", src: "assets/2010 roketa jl250p/mainpanel.jpeg" },
+      { type: "image", src: "assets/2010 roketa jl250p/oldmain.jpeg" },
       { type: "video", src: "assets/2010 roketa jl250p/Snapchat-1107529940.mp4" },
     ],
     placeholder: ["#1c5060", "#82bcb2", "#eef4dc", "radial-gradient(circle at 72% 28%, rgba(255,255,255,.8) 0 8%, transparent 9%)", "linear-gradient(180deg, rgba(255,255,255,.18), transparent)"],
@@ -230,6 +239,8 @@ const menuToggle = document.querySelector("#menuToggle");
 const musicToggle = document.querySelector("#musicToggle");
 const homeMusic = document.querySelector("#homeMusic");
 const homeContact = document.querySelector("#homeContact");
+const homePage = document.querySelector(".home-page");
+const bikeTitle = document.querySelector(".bike-title");
 const enterMuseum = document.querySelector("#enterMuseum");
 const expandedClose = document.querySelector("#expandedClose");
 const siteNav = document.querySelector("#siteNav");
@@ -272,19 +283,26 @@ let reportCloseTimer;
 let codenameClickCount = 0;
 let codenameClickTimer;
 let codenameAnimationTimer;
-const doorDurationMs = 1250;
+const doorDurationMs = 1450;
 const doorSoundOffsetSeconds = 2;
 const doorSoundTailMs = 450;
-const whooshSoundOffsetSeconds = 0.14;
+const whooshSoundOffsetSeconds = 0;
+const beatDurationMs = 60000 / 72;
 let backgroundTrackName = "main";
 let activeBackgroundTrack = null;
+const backgroundFadeTimers = new Map();
+let backgroundSwitchTimer;
+let beatTransitionTimer;
 let secretDiscoTimer;
+let bikeTitleSoundTimer;
+let bikeTitleTapTimer;
+let isSfxUnlocked = false;
 
 const audioLibrary = {
   background: {
-    main: new Audio("music/main.mp3"),
-    expanded: new Audio("music/expanded.mp3"),
-    report: new Audio("music/report.mp3"),
+    main: new Audio("music/main.wav"),
+    expanded: new Audio("music/expanded.wav"),
+    report: new Audio("music/report.wav"),
     secret: new Audio("music/secretname.mp3"),
   },
   sfx: {
@@ -327,9 +345,17 @@ Object.values(audioLibrary.sfx).forEach((track) => {
 
 audioLibrary.sfx.boom.volume = 0.95;
 audioLibrary.sfx.garage.volume = 0.72;
+audioLibrary.sfx.whoosh.volume = 1;
 audioLibrary.sfx.open.volume = 0.78;
 audioLibrary.sfx.close.volume = 0.78;
 audioLibrary.sfx.toggleMusic.volume = 0.74;
+
+const backgroundBaseVolumes = new Map(Object.entries({
+  main: 0.2,
+  expanded: 0.62,
+  report: 0.62,
+  secret: 0.62,
+}).map(([name, volume]) => [audioLibrary.background[name], volume]));
 
 const expandedProgression = [
   [220.0, 329.63, 440.0, 659.25],
@@ -471,7 +497,7 @@ function renderCarousel() {
 
 function showAlbum(index) {
   if (isExpanded) return;
-  playSfx(audioLibrary.sfx.whoosh, { offset: whooshSoundOffsetSeconds });
+  playSfx(audioLibrary.sfx.whoosh, { offset: whooshSoundOffsetSeconds, playbackRate: 2 });
   activeIndex = (index + albums.length) % albums.length;
   galleryPage.classList.add("is-changing");
   renderCarousel();
@@ -522,12 +548,12 @@ function syncVideoPlayback() {
     const holder = video.closest(".cover-slide, .cover, .feature-picture, .mini-picture, .blueprint-visual");
     const shouldPlay = holder && shouldPlayVisual(holder);
 
-    video.muted = !shouldPlay;
     video.controls = shouldPlay;
     video.loop = true;
     video.playsInline = true;
 
     if (shouldPlay) {
+      video.muted = true;
       const playPromise = video.play();
 
       if (playPromise) {
@@ -676,7 +702,7 @@ function applyVisual(element, item, fallbackStyle) {
     const shouldPlay = shouldPlayVisual(element);
 
     video.src = encodeURI(item.src);
-    video.muted = !shouldPlay;
+    video.muted = true;
     video.loop = true;
     video.playsInline = true;
     video.controls = shouldPlay;
@@ -977,20 +1003,129 @@ function syncMusicButtons() {
   musicToggle.setAttribute("aria-label", isMusicPlaying ? "Turn music off" : "Turn music on");
   if (homeMusic) {
     homeMusic.setAttribute("aria-pressed", String(isMusicPlaying));
-    homeMusic.textContent = isMusicPlaying ? "Music On" : "Toggle Music";
+    homeMusic.setAttribute("aria-label", isMusicPlaying ? "Turn music off" : "Turn music on");
   }
 }
 
-function playSfx(audio, { restart = true, offset = 0 } = {}) {
+function playSfx(audio, { restart = true, offset = 0, playbackRate = 1 } = {}) {
   if (!audio) return;
+  audio.load();
   const instance = audio.cloneNode();
   instance.volume = audio.volume;
+  instance.playbackRate = playbackRate;
   if (offset > 0) {
     instance.currentTime = offset;
   } else if (!restart) {
     instance.currentTime = audio.currentTime;
   }
   instance.play().catch(() => {});
+}
+
+function getNextBeatDelayMs() {
+  if (!isMusicPlaying) return 0;
+
+  const activeTimeMs = activeBackgroundTrack && !activeBackgroundTrack.paused
+    ? activeBackgroundTrack.currentTime * 1000
+    : performance.now();
+  const remainder = activeTimeMs % beatDurationMs;
+  const delay = beatDurationMs - remainder;
+
+  return delay < 70 ? delay + beatDurationMs : delay;
+}
+
+function runOnNextBeat(callback) {
+  const delay = getNextBeatDelayMs();
+
+  if (!delay) {
+    callback();
+    return;
+  }
+
+  window.clearTimeout(beatTransitionTimer);
+  beatTransitionTimer = window.setTimeout(callback, delay);
+}
+
+function unlockSfx() {
+  if (isSfxUnlocked) return;
+  isSfxUnlocked = true;
+  Object.values(audioLibrary.sfx).forEach((track) => {
+    const originalVolume = track.volume;
+
+    track.volume = 0;
+    track.play()
+      .then(() => {
+        track.pause();
+        track.currentTime = 0;
+        track.volume = originalVolume;
+      })
+      .catch(() => {
+        track.volume = originalVolume;
+      });
+  });
+}
+
+function playBikeTitleNote(noteIndex = 0) {
+  window.clearTimeout(bikeTitleSoundTimer);
+  ensureMusicGraph();
+  if (!audioContext) return;
+
+  const now = audioContext.currentTime;
+  const frequency = [261.63, 293.66, 329.63][noteIndex] || 261.63;
+  const output = audioContext.createGain();
+  const filter = audioContext.createBiquadFilter();
+  const oscillator = audioContext.createOscillator();
+  const overtone = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+
+  output.gain.setValueAtTime(0.0001, now);
+  output.gain.exponentialRampToValueAtTime(0.15, now + 0.035);
+  output.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(900 + noteIndex * 250, now);
+  filter.frequency.exponentialRampToValueAtTime(1500 + noteIndex * 280, now + 0.28);
+  filter.Q.value = 0.8;
+
+  oscillator.type = "sine";
+  overtone.type = "triangle";
+  oscillator.frequency.setValueAtTime(frequency * 0.98, now);
+  oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.01, now + 0.34);
+  overtone.frequency.setValueAtTime(frequency * 2.01, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.28, now + 0.035);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+  oscillator.connect(gain);
+  overtone.connect(gain);
+  gain.connect(filter);
+  filter.connect(output);
+  output.connect(audioContext.destination);
+  oscillator.start(now);
+  overtone.start(now);
+  oscillator.stop(now + 0.46);
+  overtone.stop(now + 0.46);
+
+  bikeTitleSoundTimer = window.setTimeout(() => {
+    output.disconnect();
+  }, 560);
+}
+
+function pulseBikeTitleCard(card) {
+  if (!card) return;
+  card.classList.add("is-touch-expanded");
+  window.clearTimeout(bikeTitleTapTimer);
+  bikeTitleTapTimer = window.setTimeout(() => {
+    card.classList.remove("is-touch-expanded");
+  }, 720);
+}
+
+function setHomeColorScheme(index) {
+  if (!homePage) return;
+  homePage.classList.remove("home-scheme-white", "home-scheme-yellow", "home-scheme-red");
+  homePage.classList.add(["home-scheme-white", "home-scheme-yellow", "home-scheme-red"][index] || "home-scheme-white", "is-color-awake");
+}
+
+function clearHomeColorScheme() {
+  if (!homePage || window.matchMedia("(hover: none)").matches) return;
+  homePage.classList.remove("is-color-awake", "home-scheme-white", "home-scheme-yellow", "home-scheme-red");
 }
 
 function playDoorSfx() {
@@ -1028,16 +1163,39 @@ function closeContact() {
 }
 
 function stopBackgroundTracks() {
+  window.clearTimeout(backgroundSwitchTimer);
+  backgroundFadeTimers.forEach((timer) => window.clearInterval(timer));
+  backgroundFadeTimers.clear();
   Object.values(audioLibrary.background).forEach((track) => {
     track.pause();
     track.currentTime = 0;
+    track.volume = backgroundBaseVolumes.get(track) ?? 0.62;
   });
   activeBackgroundTrack = null;
+}
+
+function fadeBackgroundTrack(track, fromVolume, toVolume, duration = 2400, onDone) {
+  const start = performance.now();
+
+  window.clearInterval(backgroundFadeTimers.get(track));
+  const timer = window.setInterval(() => {
+    const progress = Math.min(1, (performance.now() - start) / duration);
+    const eased = 1 - Math.pow(1 - progress, 3);
+
+    track.volume = fromVolume + (toVolume - fromVolume) * eased;
+    if (progress >= 1) {
+      window.clearInterval(timer);
+      backgroundFadeTimers.delete(track);
+      onDone?.();
+    }
+  }, 50);
+  backgroundFadeTimers.set(track, timer);
 }
 
 function setBackgroundTrack(trackName, { restart = false } = {}) {
   backgroundTrackName = trackName;
   const nextTrack = audioLibrary.background[trackName] || audioLibrary.background.main;
+  const nextVolume = backgroundBaseVolumes.get(nextTrack) ?? 0.62;
 
   if (!isMusicPlaying) {
     stopBackgroundTracks();
@@ -1046,10 +1204,31 @@ function setBackgroundTrack(trackName, { restart = false } = {}) {
 
   if (activeBackgroundTrack === nextTrack && !restart && !nextTrack.paused) return;
 
-  stopBackgroundTracks();
-  activeBackgroundTrack = nextTrack;
-  if (restart) activeBackgroundTrack.currentTime = 0;
-  activeBackgroundTrack.play().catch(() => {});
+  const switchTrack = () => {
+    const previousTrack = activeBackgroundTrack;
+    const previousVolume = previousTrack?.volume ?? 0;
+
+    activeBackgroundTrack = nextTrack;
+    if (restart) nextTrack.currentTime = 0;
+    nextTrack.volume = previousTrack && previousTrack !== nextTrack ? 0 : nextVolume;
+    nextTrack.play().catch(() => {});
+
+    if (previousTrack && previousTrack !== nextTrack && !previousTrack.paused) {
+      fadeBackgroundTrack(previousTrack, previousVolume, 0, 2800, () => {
+        previousTrack.pause();
+        previousTrack.currentTime = 0;
+        previousTrack.volume = backgroundBaseVolumes.get(previousTrack) ?? 0.62;
+      });
+      fadeBackgroundTrack(nextTrack, 0, nextVolume, 1800);
+      return;
+    }
+
+    nextTrack.volume = nextVolume;
+  };
+
+  window.clearTimeout(backgroundSwitchTimer);
+  const delay = activeBackgroundTrack && activeBackgroundTrack !== nextTrack ? getNextBeatDelayMs() : 0;
+  backgroundSwitchTimer = window.setTimeout(switchTrack, delay);
 }
 
 function currentSectionTrack() {
@@ -1283,7 +1462,7 @@ function updateActivePhoto(photoIndex, shouldFlip = true, slotDirection = 0) {
   if (isExpanded && mediaIndex !== previousIndex) {
     const trackDirection = slotDirection || (mediaIndex > previousIndex ? 1 : -1);
 
-    playSfx(audioLibrary.sfx.whoosh, { offset: whooshSoundOffsetSeconds });
+    playSfx(audioLibrary.sfx.whoosh, { offset: whooshSoundOffsetSeconds, playbackRate: 2 });
     cover.dataset.previousPhotoIndex = String(previousIndex);
     cover.dataset.mediaDirection = trackDirection > 0 ? "forward" : "backward";
     cover.classList.add("is-media-moving");
@@ -1576,6 +1755,9 @@ function setMobileDrawer(mode) {
 
 buildGalleryShell();
 
+document.addEventListener("pointerdown", unlockSfx, { once: true });
+document.addEventListener("keydown", unlockSfx, { once: true });
+
 cards.forEach((card, index) => {
   card.addEventListener("click", (event) => {
     if (index === activeIndex) {
@@ -1629,6 +1811,32 @@ if (homeMusic) {
 if (homeContact) {
   homeContact.addEventListener("click", () => {
     showContactPanel();
+  });
+}
+if (bikeTitle) {
+  bikeTitle.querySelectorAll("span").forEach((card, index) => {
+    card.addEventListener("pointerenter", (event) => {
+      if (event.pointerType === "touch") return;
+      setHomeColorScheme(index);
+      playBikeTitleNote(index);
+    });
+    card.addEventListener("focus", () => {
+      setHomeColorScheme(index);
+      playBikeTitleNote(index);
+    });
+  });
+  bikeTitle.addEventListener("pointerleave", clearHomeColorScheme);
+  bikeTitle.addEventListener("focusout", (event) => {
+    if (!bikeTitle.contains(event.relatedTarget)) clearHomeColorScheme();
+  });
+  bikeTitle.addEventListener("click", (event) => {
+    const card = event.target.closest(".bike-title span");
+
+    if (!card || !window.matchMedia("(hover: none)").matches) return;
+    pulseBikeTitleCard(card);
+    const index = Array.from(bikeTitle.children).indexOf(card);
+    setHomeColorScheme(index);
+    playBikeTitleNote(index);
   });
 }
 
@@ -1800,10 +2008,7 @@ carousel.addEventListener("pointerup", (event) => {
     return;
   }
 
-  if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 54) {
-    setMobileDrawer(deltaY < 0 ? "pictures" : "info");
-    return;
-  }
+  if (Math.abs(deltaY) > Math.abs(deltaX)) return;
 
   if (Math.abs(deltaX) < 48) return;
   showAlbum(activeIndex + (deltaX < 0 ? 1 : -1));
