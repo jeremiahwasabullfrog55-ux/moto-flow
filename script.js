@@ -33,7 +33,6 @@ const albums = [
       { type: "image", src: "assets/1970 gl000 goldwing/DSC_0176.JPG" },
       { type: "image", src: "assets/1970 gl000 goldwing/7.JPG" },
       { type: "image", src: "assets/1970 gl000 goldwing/9.JPG" },
-      { type: "video", src: "assets/1970 gl000 goldwing/IMG_5510.MOV" },
       { type: "video", src: "assets/1970 gl000 goldwing/signal-2026-03-30-17-02-46-909~2.mp4" },
     ],
     placeholder: ["#27484d", "#76a68f", "#e0c66b", "radial-gradient(circle at 50% 50%, #f6f0c7 0 18%, transparent 19%)", "repeating-linear-gradient(90deg, rgba(255,255,255,.12) 0 2px, transparent 2px 14px)"],
@@ -250,6 +249,9 @@ const closeContactPanel = contactPanel.querySelector(".close-panel");
 const reportButton = document.querySelector("#reportButton");
 const reportPanel = document.querySelector("#reportPanel");
 const closeReportPanel = reportPanel.querySelector(".close-panel");
+const interestButton = document.querySelector("#interestButton");
+const interestPanel = document.querySelector("#interestPanel");
+const closeInterestPanel = interestPanel.querySelector(".close-panel");
 const galleryPage = document.querySelector(".gallery-page");
 const desktopCopy = document.querySelector("#desktopCopy");
 const codenamePanel = document.querySelector("#codenamePanel");
@@ -285,7 +287,7 @@ let codenameClickTimer;
 let codenameAnimationTimer;
 const doorDurationMs = 1450;
 const doorSoundOffsetSeconds = 2;
-const doorSoundTailMs = 450;
+const doorSoundTailMs = 140;
 const whooshSoundOffsetSeconds = 0;
 const beatDurationMs = 60000 / 72;
 let backgroundTrackName = "main";
@@ -297,6 +299,8 @@ let secretDiscoTimer;
 let bikeTitleSoundTimer;
 let bikeTitleTapTimer;
 let isSfxUnlocked = false;
+let activeDoorSfx = null;
+let doorSoundTimer = null;
 
 const audioLibrary = {
   background: {
@@ -1117,25 +1121,53 @@ function pulseBikeTitleCard(card) {
   }, 720);
 }
 
+function clearBikeTitleTouchSelection() {
+  if (!bikeTitle) return;
+  window.clearTimeout(bikeTitleTapTimer);
+  bikeTitle.querySelectorAll("span").forEach((card) => card.classList.remove("is-touch-expanded"));
+  clearHomeColorScheme(true);
+}
+
+function toggleBikeTitleTouchSelection(card, index) {
+  if (!card) return;
+  const isSelected = card.classList.contains("is-touch-expanded");
+
+  clearBikeTitleTouchSelection();
+  if (isSelected) return;
+
+  card.classList.add("is-touch-expanded");
+  setHomeColorScheme(index);
+  playBikeTitleNote(index);
+}
+
 function setHomeColorScheme(index) {
   if (!homePage) return;
   homePage.classList.remove("home-scheme-white", "home-scheme-yellow", "home-scheme-red");
   homePage.classList.add(["home-scheme-white", "home-scheme-yellow", "home-scheme-red"][index] || "home-scheme-white", "is-color-awake");
 }
 
-function clearHomeColorScheme() {
-  if (!homePage || window.matchMedia("(hover: none)").matches) return;
+function clearHomeColorScheme(force = false) {
+  const shouldForce = force === true;
+  if (!homePage || (!shouldForce && window.matchMedia("(hover: none)").matches)) return;
   homePage.classList.remove("is-color-awake", "home-scheme-white", "home-scheme-yellow", "home-scheme-red");
 }
 
 function playDoorSfx() {
+  window.clearTimeout(doorSoundTimer);
+  if (activeDoorSfx) {
+    activeDoorSfx.pause();
+    activeDoorSfx.currentTime = 0;
+  }
+
   const instance = audioLibrary.sfx.garage.cloneNode();
+  activeDoorSfx = instance;
   instance.volume = audioLibrary.sfx.garage.volume;
   instance.currentTime = doorSoundOffsetSeconds;
   instance.play().catch(() => {});
-  window.setTimeout(() => {
+  doorSoundTimer = window.setTimeout(() => {
     instance.pause();
     instance.currentTime = 0;
+    if (activeDoorSfx === instance) activeDoorSfx = null;
   }, doorDurationMs + doorSoundTailMs);
 }
 
@@ -1162,8 +1194,24 @@ function closeContact() {
   contactPanel.close();
 }
 
+function showInterestPanel() {
+  playOpenSfx();
+  if (typeof interestPanel.showModal === "function") {
+    interestPanel.showModal();
+  } else {
+    interestPanel.setAttribute("open", "");
+  }
+}
+
+function closeInterest() {
+  if (!interestPanel.open) return;
+  playCloseSfx();
+  interestPanel.close();
+}
+
 function stopBackgroundTracks() {
   window.clearTimeout(backgroundSwitchTimer);
+  window.clearTimeout(beatTransitionTimer);
   backgroundFadeTimers.forEach((timer) => window.clearInterval(timer));
   backgroundFadeTimers.clear();
   Object.values(audioLibrary.background).forEach((track) => {
@@ -1205,30 +1253,24 @@ function setBackgroundTrack(trackName, { restart = false } = {}) {
   if (activeBackgroundTrack === nextTrack && !restart && !nextTrack.paused) return;
 
   const switchTrack = () => {
-    const previousTrack = activeBackgroundTrack;
-    const previousVolume = previousTrack?.volume ?? 0;
+    backgroundFadeTimers.forEach((timer) => window.clearInterval(timer));
+    backgroundFadeTimers.clear();
+
+    Object.values(audioLibrary.background).forEach((track) => {
+      if (track === nextTrack) return;
+      track.pause();
+      track.currentTime = 0;
+      track.volume = backgroundBaseVolumes.get(track) ?? 0.62;
+    });
 
     activeBackgroundTrack = nextTrack;
     if (restart) nextTrack.currentTime = 0;
-    nextTrack.volume = previousTrack && previousTrack !== nextTrack ? 0 : nextVolume;
-    nextTrack.play().catch(() => {});
-
-    if (previousTrack && previousTrack !== nextTrack && !previousTrack.paused) {
-      fadeBackgroundTrack(previousTrack, previousVolume, 0, 2800, () => {
-        previousTrack.pause();
-        previousTrack.currentTime = 0;
-        previousTrack.volume = backgroundBaseVolumes.get(previousTrack) ?? 0.62;
-      });
-      fadeBackgroundTrack(nextTrack, 0, nextVolume, 1800);
-      return;
-    }
-
     nextTrack.volume = nextVolume;
+    nextTrack.play().catch(() => {});
   };
 
   window.clearTimeout(backgroundSwitchTimer);
-  const delay = activeBackgroundTrack && activeBackgroundTrack !== nextTrack ? getNextBeatDelayMs() : 0;
-  backgroundSwitchTimer = window.setTimeout(switchTrack, delay);
+  switchTrack();
 }
 
 function currentSectionTrack() {
@@ -1783,6 +1825,7 @@ expandedClose.addEventListener("click", (event) => {
   setExpanded(false);
 });
 closeContactPanel.addEventListener("click", closeContact);
+closeInterestPanel.addEventListener("click", closeInterest);
 if (codenamePanel) {
   codenamePanel.addEventListener("click", advanceCodenamePanel);
 }
@@ -1833,12 +1876,16 @@ if (bikeTitle) {
     const card = event.target.closest(".bike-title span");
 
     if (!card || !window.matchMedia("(hover: none)").matches) return;
-    pulseBikeTitleCard(card);
     const index = Array.from(bikeTitle.children).indexOf(card);
-    setHomeColorScheme(index);
-    playBikeTitleNote(index);
+    toggleBikeTitleTouchSelection(card, index);
   });
 }
+
+document.addEventListener("click", (event) => {
+  if (!window.matchMedia("(hover: none)").matches) return;
+  if (event.target.closest(".bike-title span")) return;
+  clearBikeTitleTouchSelection();
+});
 
 function openMuseum() {
   if (document.body.classList.contains("is-museum-open") || document.body.classList.contains("is-entering-museum")) return;
@@ -1913,6 +1960,27 @@ contactPanel.addEventListener("click", (event) => {
   if (!isInDialog) closeContact();
 });
 
+contactPanel.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closeContact();
+});
+
+interestPanel.addEventListener("click", (event) => {
+  const dialogBox = interestPanel.getBoundingClientRect();
+  const isInDialog =
+    event.clientX >= dialogBox.left &&
+    event.clientX <= dialogBox.right &&
+    event.clientY >= dialogBox.top &&
+    event.clientY <= dialogBox.bottom;
+
+  if (!isInDialog) closeInterest();
+});
+
+interestPanel.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closeInterest();
+});
+
 function openReport() {
   const album = albums[activeIndex];
   playOpenSfx();
@@ -1965,6 +2033,13 @@ reportButton.addEventListener("click", (event) => {
   event.stopPropagation();
   openReport();
 });
+
+if (interestButton) {
+  interestButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    showInterestPanel();
+  });
+}
 
 reportPanel.addEventListener("click", (event) => {
   const dialogBox = reportPanel.getBoundingClientRect();

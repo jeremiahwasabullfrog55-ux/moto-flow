@@ -85,14 +85,7 @@
               </div>
             </dl>
             <button class="report-button" id="reportButton" type="button">Full Report</button>
-            <section class="interest-card" aria-label="Interested in this motorcycle">
-              <h3>Interested?</h3>
-              <p>Reach out to Henry with an offer. We can talk through the bike, customization ideas, and how to make it fit what you want.</p>
-              <div class="interest-links">
-                <a href="mailto:henrybeuving@gmail.com?subject=Motorcycle%20Inquiry">Email</a>
-                <a href="tel:+17733183098">Call</a>
-              </div>
-            </section>
+            <button class="interest-button" id="interestButton" type="button">Interested?</button>
           </aside>
 
           <div class="carousel-wrap">
@@ -207,16 +200,40 @@
       </p>
       <p class="contact-name">Henry Beuving</p>
       <div class="contact-actions" aria-label="Contact Henry directly">
-        <a class="contact-action primary" href="mailto:henrybeuving@gmail.com?subject=Motorcycle%20Museum%20Inquiry">
-          <span>Email Henry</span>
+        <div class="contact-action primary">
+          <span>Email</span>
           <small>henrybeuving@gmail.com</small>
-        </a>
-        <a class="contact-action" href="tel:+17733183098">
-          <span>Call Henry</span>
+        </div>
+        <div class="contact-action">
+          <span>Phone</span>
           <small>(773) 318-3098</small>
-        </a>
+        </div>
       </div>
       <p class="contact-note">Interested in a bike or have questions? Reach out to Henry.</p>
+    </dialog>
+
+    <dialog class="interest-panel" id="interestPanel">
+      <button class="close-panel" type="button" aria-label="Close interested details">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M18 6 6 18M6 6l12 12" />
+        </svg>
+      </button>
+      <p class="panel-label">Interested?</p>
+      <h2>Make It Yours</h2>
+      <p>
+        Reach out to Henry with an offer, questions, or the direction you want to take the bike.
+        We can talk through the motorcycle, what has already been done, and ways to customize it to your liking.
+      </p>
+      <div class="contact-actions" aria-label="Interested contact information">
+        <div class="contact-action primary">
+          <span>Email</span>
+          <small>henrybeuving@gmail.com</small>
+        </div>
+        <div class="contact-action">
+          <span>Phone</span>
+          <small>(773) 318-3098</small>
+        </div>
+      </div>
     </dialog>
 
     <dialog class="report-panel" id="reportPanel">
