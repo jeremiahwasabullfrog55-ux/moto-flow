@@ -673,6 +673,7 @@ function applyVisual(element, item, fallbackStyle) {
   const visualKey = `${item.type}:${item.src || (item.style || fallbackStyle).join("|")}`;
 
   element.classList.toggle("has-media", item.type !== "placeholder");
+  element.classList.toggle("has-video", item.type === "video");
   applyPictureStyle(element, item.style || fallbackStyle);
 
   if (element.dataset.visualKey === visualKey) {
@@ -712,6 +713,9 @@ function applyVisual(element, item, fallbackStyle) {
     video.controls = shouldPlay;
     video.autoplay = shouldPlay;
     video.preload = "metadata";
+    video.addEventListener("click", (event) => event.stopPropagation());
+    video.addEventListener("pointerdown", (event) => event.stopPropagation());
+    video.addEventListener("pointerup", (event) => event.stopPropagation());
     video.addEventListener("error", () => {
       const fallback = fallbacks.shift();
 
