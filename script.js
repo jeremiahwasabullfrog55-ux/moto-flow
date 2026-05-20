@@ -1052,7 +1052,8 @@ function runOnNextBeat(callback) {
 function unlockSfx() {
   if (isSfxUnlocked) return;
   isSfxUnlocked = true;
-  Object.values(audioLibrary.sfx).forEach((track) => {
+  Object.entries(audioLibrary.sfx).forEach(([name, track]) => {
+    if (name === "garage") return;
     const originalVolume = track.volume;
 
     track.volume = 0;

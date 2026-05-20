@@ -2871,8 +2871,10 @@ body:not(.is-museum-open) .gallery-page {
     position: static;
     display: flex;
     flex-direction: row;
+    order: -2;
     gap: 6px;
     max-width: min(100%, 240px);
+    margin: -4px auto -2px;
     padding: 6px 8px;
     background: rgba(255, 255, 255, 0.08);
     transform: none;
@@ -3097,7 +3099,7 @@ body:not(.is-museum-open) .gallery-page {
   }
 
   .home-copy {
-    gap: 10px;
+    gap: 14px;
   }
 
   .home-copy h1 {
@@ -3106,28 +3108,39 @@ body:not(.is-museum-open) .gallery-page {
   }
 
   .bike-title {
-    width: min(96vw, 8.2em);
+    width: min(92vw, 7.4em);
   }
 
   .bike-title span {
-    min-width: 2.35em;
+    min-width: 2.26em;
     border-radius: 7px;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.18),
+      0 12px 28px rgba(0, 0, 0, 0.24);
+  }
+
+  .bike-title span:nth-child(1) {
+    --title-indent: -0.2em;
+  }
+
+  .bike-title span:nth-child(3) {
+    --title-indent: 0.2em;
   }
 
   .home-copy p:not(.eyebrow) {
-    max-width: 35ch;
-    font-size: 0.88rem;
-    line-height: 1.42;
+    display: none;
   }
 
   .eyebrow {
+    margin-top: 4px;
     font-size: 0.72rem;
   }
 
   .home-actions {
     grid-template-columns: repeat(2, minmax(92px, max-content));
     width: min(100%, 22rem);
-    gap: 8px;
+    gap: 10px;
+    margin-top: 4px;
   }
 
   .home-link,
@@ -3227,17 +3240,15 @@ body:not(.is-museum-open) .gallery-page {
 
 @media (max-width: 430px) {
   .home-copy {
-    gap: 8px;
+    gap: 12px;
   }
 
   .home-copy h1 {
-    font-size: clamp(4.9rem, 28vw, 6.55rem);
+    font-size: clamp(4.75rem, 27vw, 6.4rem);
   }
 
-  .home-copy p:not(.eyebrow) {
-    max-width: 31ch;
-    font-size: 0.8rem;
-    line-height: 1.34;
+  .bike-title {
+    width: min(90vw, 7em);
   }
 
   .home-actions {
