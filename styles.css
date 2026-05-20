@@ -491,6 +491,11 @@ body.is-museum-open:not(.is-entering-museum):not(.is-returning-home) .home-stats
   transform: none;
 }
 
+body:not(.is-museum-open) .gallery-page {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .home-copy {
   position: relative;
   z-index: 1;
@@ -2734,6 +2739,11 @@ body.is-museum-open:not(.is-entering-museum):not(.is-returning-home) .home-stats
     --header-height: 64px;
   }
 
+  body:not(.is-museum-open) {
+    height: 100svh;
+    overflow: hidden;
+  }
+
   body:has(.gallery-page.is-expanded) .site-header,
   body:not(.is-museum-open) .site-header {
     display: none;
@@ -2829,6 +2839,8 @@ body.is-museum-open:not(.is-entering-museum):not(.is-returning-home) .home-stats
 
   .gallery-page.is-expanded .desktop-copy .bike-detail {
     margin-inline: auto;
+    font-size: 0.9rem;
+    line-height: 1.45;
   }
 
   .gallery-page.is-expanded .codename-panel {
@@ -2856,7 +2868,16 @@ body.is-museum-open:not(.is-entering-museum):not(.is-returning-home) .home-stats
   }
 
   .gallery-page.is-expanded .mobile-media-scrubber {
-    display: none;
+    position: static;
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    max-width: min(100%, 240px);
+    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.08);
+    transform: none;
+    pointer-events: none;
+    backdrop-filter: none;
   }
 
   .gallery-page.is-expanded .media-scrubber::-webkit-scrollbar {
@@ -2867,11 +2888,12 @@ body.is-museum-open:not(.is-entering-museum):not(.is-returning-home) .home-stats
     flex: 0 0 auto;
     width: 7px;
     height: 7px;
+    cursor: default;
   }
 
   .gallery-page.is-expanded .mobile-media-scrubber .media-scrub-dot.active {
-    width: 7px;
-    height: 24px;
+    width: 24px;
+    height: 7px;
   }
 
   .report-button {
@@ -2962,7 +2984,7 @@ body.is-museum-open:not(.is-entering-museum):not(.is-returning-home) .home-stats
   }
 
   .nav-button {
-    top: 44%;
+    display: none;
   }
 
   .prev {
@@ -3069,6 +3091,59 @@ body.is-museum-open:not(.is-entering-museum):not(.is-returning-home) .home-stats
 }
 
 @media (max-width: 720px) {
+  .home-page {
+    padding: max(16px, env(safe-area-inset-top)) 14px max(18px, env(safe-area-inset-bottom));
+    place-items: center;
+  }
+
+  .home-copy {
+    gap: 10px;
+  }
+
+  .home-copy h1 {
+    font-size: clamp(5.2rem, 25vw, 7.4rem);
+    line-height: 0.84;
+  }
+
+  .bike-title {
+    width: min(96vw, 8.2em);
+  }
+
+  .bike-title span {
+    min-width: 2.35em;
+    border-radius: 7px;
+  }
+
+  .home-copy p:not(.eyebrow) {
+    max-width: 35ch;
+    font-size: 0.88rem;
+    line-height: 1.42;
+  }
+
+  .eyebrow {
+    font-size: 0.72rem;
+  }
+
+  .home-actions {
+    grid-template-columns: repeat(2, minmax(92px, max-content));
+    width: min(100%, 22rem);
+    gap: 8px;
+  }
+
+  .home-link,
+  .home-secondary {
+    min-height: 36px;
+    padding-inline: 14px;
+    font-size: 0.88rem;
+  }
+
+  .home-link {
+    min-width: min(78vw, 250px);
+    min-height: 58px;
+    padding-inline: 34px;
+    font-size: clamp(1.15rem, 7vw, 1.55rem);
+  }
+
   .mobile-drawer {
     position: fixed;
     right: 10px;
@@ -3151,6 +3226,52 @@ body.is-museum-open:not(.is-entering-museum):not(.is-returning-home) .home-stats
 }
 
 @media (max-width: 430px) {
+  .home-copy {
+    gap: 8px;
+  }
+
+  .home-copy h1 {
+    font-size: clamp(4.9rem, 28vw, 6.55rem);
+  }
+
+  .home-copy p:not(.eyebrow) {
+    max-width: 31ch;
+    font-size: 0.8rem;
+    line-height: 1.34;
+  }
+
+  .home-actions {
+    gap: 7px;
+  }
+
+  .home-link,
+  .home-secondary {
+    min-height: 34px;
+  }
+
+  .home-link {
+    min-height: 52px;
+  }
+
+  .gallery-page.is-expanded .desktop-copy {
+    width: calc(100vw - 14px);
+    padding: 13px 16px 15px;
+  }
+
+  .gallery-page.is-expanded .desktop-copy h2 {
+    font-size: clamp(1.72rem, 9.4vw, 2.35rem);
+  }
+
+  .gallery-page.is-expanded .desktop-copy .bike-detail {
+    font-size: 0.78rem;
+    line-height: 1.36;
+  }
+
+  .gallery-page.is-expanded .codename-panel {
+    height: 48px;
+    margin-block: -6px -8px;
+  }
+
   .brand {
     display: none;
   }
