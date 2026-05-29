@@ -662,11 +662,11 @@ body:not(.is-museum-open) .gallery-page {
   }
 
   .gallery-page:not(.is-expanded) .album-card {
-    width: clamp(210px, 28vw, 430px);
+    width: clamp(240px, 32vw, 540px);
   }
 
   .gallery-page:not(.is-expanded) .gallery-stage {
-    transform: translateY(-62px);
+    transform: translateY(-102px);
   }
 
   .home-page {
@@ -869,7 +869,7 @@ body:not(.is-museum-open) .gallery-page {
 .gallery-page.is-expanded .gallery-stage {
   grid-template-columns: minmax(250px, 0.43fr) minmax(0, 1fr) minmax(0, 0.001fr);
   align-items: center;
-  transform: translateY(clamp(-132px, -11vh, -72px));
+  transform: translateY(clamp(-154px, -11vh, -94px));
 }
 
 .gallery-page.is-expanded .desktop-copy {
@@ -1292,6 +1292,7 @@ body:not(.is-museum-open) .gallery-page {
 
 .album-card {
   --x: 0;
+  --y: 0px;
   --z: -210px;
   --rot: 0deg;
   --scale: 0.82;
@@ -1302,7 +1303,7 @@ body:not(.is-museum-open) .gallery-page {
   left: 50%;
   width: clamp(155px, 23vw, 350px);
   cursor: pointer;
-  transform: translateX(-50%) translateX(var(--x)) translateZ(var(--z)) rotateY(var(--rot)) scale(var(--scale));
+  transform: translateX(-50%) translateX(var(--x)) translateY(var(--y)) translateZ(var(--z)) rotateY(var(--rot)) scale(var(--scale));
   transform-style: preserve-3d;
   transform-origin: center top;
   opacity: var(--opacity);
@@ -1326,12 +1327,12 @@ body:not(.is-museum-open) .gallery-page {
   opacity: 0.3;
   pointer-events: none;
   filter: saturate(0.64) brightness(0.58) blur(0.7px);
-  transform: translateX(-50%) translateX(var(--x)) translateZ(-430px) rotateY(var(--rot)) scale(0.46);
+  transform: translateX(-50%) translateX(var(--x)) translateY(var(--y)) translateZ(-430px) rotateY(var(--rot)) scale(0.46);
 }
 
 .gallery-page.is-expanded .album-card.active {
   --scale: 1;
-  width: min(40vw, 610px);
+  width: min(48vw, 760px);
   transform: translateX(-50%) translateY(-46px) translateZ(110px) rotateY(0deg) scale(1);
 }
 
@@ -1750,7 +1751,7 @@ body:not(.is-museum-open) .gallery-page {
 
 .gallery-page:not(.is-expanded) .gallery-stage {
   grid-template-columns: minmax(0, 0.001fr) minmax(420px, 1fr) minmax(0, 0.001fr);
-  transform: translateY(-62px);
+  transform: translateY(-102px);
 }
 
 .gallery-page:not(.is-expanded) .carousel-wrap {

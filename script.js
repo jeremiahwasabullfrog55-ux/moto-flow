@@ -458,6 +458,7 @@ function renderCarousel() {
     const abs = Math.abs(distance);
     const direction = Math.sign(distance);
     const x = distance * spacing;
+    const y = !isExpanded && abs > 0 ? Math.min(34, 10 + abs * 7) : 0;
     const z = isExpanded && abs === 0 ? 110 : isExpanded ? -260 - abs * 54 : abs === 0 ? 90 : -120 - abs * 90;
     const rotation = abs === 0 ? 0 : direction * (isExpanded ? -46 : -54);
     const opacity = isExpanded && abs > 2 ? 0 : isExpanded && abs > 0 ? 0.3 : abs === 3 ? 0.22 : abs === 2 ? 0.46 : abs === 1 ? 0.78 : 1;
@@ -471,6 +472,7 @@ function renderCarousel() {
 
     card.classList.toggle("active", index === activeIndex);
     card.style.setProperty("--x", `${x}px`);
+    card.style.setProperty("--y", `${y}%`);
     card.style.setProperty("--z", `${z}px`);
     card.style.setProperty("--rot", `${rotation}deg`);
     card.style.setProperty("--scale", scale);
