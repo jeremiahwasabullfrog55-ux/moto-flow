@@ -4,7 +4,7 @@ const albums = [
     title: "Honda Goldwing",
     codename: "The Flatliner",
     assetFolder: "assets/1970 gl000 goldwing",
-    mainPanel: { type: "image", src: "assets/1970 gl000 goldwing/mainpanel.JPG" },
+    mainPanel: { type: "image", src: "assets/1970 gl000 goldwing/mainpanel.jpg" },
     blueprint: { type: "image", src: "assets/1970 gl000 goldwing/blueprint.png" },
     detail: "A vintage Goldwing touring platform with big-road character, built around smooth presence and classic Honda heft.",
     year: "1979",
@@ -25,7 +25,7 @@ const albums = [
       features: [["Only one of its era", "Honda described the GL1000 as using the only four-stroke horizontally opposed four-cylinder motorcycle engine of its time."], ["Flagship before dresser", "It began as Honda's high-speed flagship, then riders turned it into the grand touring icon."], ["Under-seat fuel tank", "Moving fuel mass under the seat lowered the center of gravity and freed the top shelter for electrics."], ["Shaft-drive tourer", "The enclosed final drive matched the long-distance mission before the Gold Wing became fully dressed."], ["Flat-four blueprint", "The low, wide engine layout became the mechanical identity every later Wing evolved from."]],
     },
     media: [
-      { type: "image", src: "assets/1970 gl000 goldwing/mainpanel.JPG" },
+      { type: "image", src: "assets/1970 gl000 goldwing/mainpanel.jpg" },
       { type: "image", src: "assets/1970 gl000 goldwing/DSC_0125.JPG" },
       { type: "image", src: "assets/1970 gl000 goldwing/DSC_0144.JPG" },
       { type: "image", src: "assets/1970 gl000 goldwing/DSC_0156.JPG" },
@@ -97,6 +97,12 @@ const albums = [
       features: [["LTD lineage", "Kawasaki's LTD idea helped define the Japanese factory-custom cruiser look before every brand chased it."], ["Middleweight cruiser", "The 750 brought LTD styling into a more manageable size than the original big-bore KZ900 LTD formula."], ["Z-era attitude", "It carried Kawasaki's standard-bike bones under a lower, chrome-heavy cruiser personality."], ["Simple service layout", "Air cooling, visible hardware, and conventional suspension keep the mechanical story easy to document."], ["Style as engineering", "Pullback bars, stepped seating, mag-style wheels, and trim are the point: factory custom, not pure standard."]],
     },
     media: [
+      { type: "image", src: "assets/1981 kawasaki ltd 750/mainpanel.jpg" },
+      { type: "image", src: "assets/1981 kawasaki ltd 750/DSC_0005.JPG" },
+      { type: "image", src: "assets/1981 kawasaki ltd 750/DSC_0006.JPG" },
+      { type: "image", src: "assets/1981 kawasaki ltd 750/DSC_0019.JPG" },
+      { type: "image", src: "assets/1981 kawasaki ltd 750/DSC_0027.JPG" },
+      { type: "image", src: "assets/1981 kawasaki ltd 750/32232.jpg" },
       { type: "image", src: "assets/1981 kawasaki ltd 750/Screenshot_20260203-092153.png" },
       { type: "image", src: "assets/1981 kawasaki ltd 750/signal-2026-03-01-15-37-43-911-2.jpg" },
       { type: "video", src: "assets/1981 kawasaki ltd 750/signal-2026-03-01-15-37-43-911.mp4" },
@@ -1056,21 +1062,8 @@ function runOnNextBeat(callback) {
 function unlockSfx() {
   if (isSfxUnlocked) return;
   isSfxUnlocked = true;
-  Object.entries(audioLibrary.sfx).forEach(([name, track]) => {
-    if (name === "garage") return;
-    const originalVolume = track.volume;
-
-    track.volume = 0;
-    track.play()
-      .then(() => {
-        track.pause();
-        track.currentTime = 0;
-        track.volume = originalVolume;
-      })
-      .catch(() => {
-        track.volume = originalVolume;
-      });
-  });
+  ensureMusicGraph();
+  audioContext?.resume?.().catch(() => {});
 }
 
 function playBikeTitleNote(noteIndex = 0) {

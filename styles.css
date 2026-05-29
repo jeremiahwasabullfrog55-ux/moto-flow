@@ -2834,6 +2834,11 @@ body:not(.is-museum-open) .gallery-page {
     transform: translateY(-10px);
   }
 
+  .gallery-page.is-expanded .expanded-close {
+    top: max(12px, env(safe-area-inset-top));
+    right: 10px;
+  }
+
   .desktop-copy,
   .picture-board {
     display: none;
@@ -2886,6 +2891,8 @@ body:not(.is-museum-open) .gallery-page {
     order: 1;
     align-self: center;
     width: 100%;
+    padding-right: 46px;
+    padding-left: 8px;
   }
 
   .gallery-page.is-expanded .carousel-wrap > .media-scrubber {
@@ -2893,18 +2900,22 @@ body:not(.is-museum-open) .gallery-page {
   }
 
   .gallery-page.is-expanded .mobile-media-scrubber {
-    position: static;
+    position: fixed;
+    top: calc(max(12px, env(safe-area-inset-top)) + 54px);
+    right: 13px;
+    z-index: 23;
     display: flex;
-    flex-direction: row;
-    order: -2;
+    flex-direction: column;
     gap: 6px;
-    max-width: min(100%, 240px);
-    margin: -4px auto -2px;
-    padding: 6px 8px;
+    max-width: none;
+    max-height: min(44vh, 260px);
+    margin: 0;
+    padding: 8px 6px;
     background: rgba(255, 255, 255, 0.08);
     transform: none;
     pointer-events: none;
     backdrop-filter: none;
+    overflow: hidden;
   }
 
   .gallery-page.is-expanded .media-scrubber::-webkit-scrollbar {
@@ -2919,8 +2930,8 @@ body:not(.is-museum-open) .gallery-page {
   }
 
   .gallery-page.is-expanded .mobile-media-scrubber .media-scrub-dot.active {
-    width: 24px;
-    height: 7px;
+    width: 7px;
+    height: 24px;
   }
 
   .report-button {
@@ -2973,7 +2984,7 @@ body:not(.is-museum-open) .gallery-page {
   }
 
   .gallery-page.is-expanded .album-card.active {
-    width: min(92vw, 430px);
+    width: min(84vw, 390px);
   }
 
   .gallery-page.is-expanded .cover-slide {
