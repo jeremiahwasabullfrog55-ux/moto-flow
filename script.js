@@ -330,8 +330,8 @@ const flipClasses = ["flip-left-right", "flip-right-left", "flip-up-down", "flip
 const verticalFlipClasses = ["flip-up-down", "flip-down-up"];
 const flipDuration = 680;
 const flipMidpoint = flipDuration / 2;
-const expandSettleDelay = 680;
-const collapseDuration = 820;
+const expandSettleDelay = 980;
+const collapseDuration = 980;
 const imageExtensions = ["jpg", "jpeg", "png", "webp"];
 const ambientProgression = [
   [174.61, 220.0, 261.63, 329.63],
@@ -1122,7 +1122,10 @@ function pulseBikeTitleCard(card) {
 function clearBikeTitleTouchSelection() {
   if (!bikeTitle) return;
   window.clearTimeout(bikeTitleTapTimer);
-  bikeTitle.querySelectorAll("span").forEach((card) => card.classList.remove("is-touch-expanded"));
+  bikeTitle.querySelectorAll("span").forEach((card) => {
+    card.classList.remove("is-touch-expanded");
+    card.blur();
+  });
   clearHomeColorScheme(true);
 }
 
