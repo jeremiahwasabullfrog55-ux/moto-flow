@@ -184,6 +184,19 @@ body.is-entering-museum .site-header {
   border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(17, 18, 18, 0.78);
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  box-shadow: none;
+}
+
+.menu-toggle:focus,
+.menu-toggle:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.menu-toggle::-moz-focus-inner {
+  border: 0;
 }
 
 .music-toggle {
@@ -2870,17 +2883,15 @@ body:not(.is-museum-open) .gallery-page {
 
   .gallery-page.is-expanded .expanded-close {
     top: auto;
-    right: 0;
-    bottom: 0;
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
     display: grid;
-    width: 100%;
-    height: 58px;
-    border: 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 0;
-    background:
-      linear-gradient(180deg, rgba(3, 5, 8, 0.42), rgba(3, 5, 8, 0.95)),
-      rgba(3, 5, 8, 0.92);
+    width: 52px;
+    height: 52px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(3, 5, 8, 0.92);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.36);
     transform: none;
   }
 
@@ -3107,6 +3118,7 @@ body:not(.is-museum-open) .gallery-page {
 @media (max-width: 620px) {
   .report-grid {
     grid-template-columns: 1fr;
+    padding-bottom: 86px;
   }
 
   .history-section,
@@ -3138,32 +3150,28 @@ body:not(.is-museum-open) .gallery-page {
   }
 
   .report-close {
-    position: sticky;
+    position: fixed;
     top: auto;
-    right: auto;
-    bottom: 0;
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
     display: grid;
-    width: 100%;
-    height: 58px;
-    margin-top: 14px;
-    margin-bottom: 0;
+    width: 52px;
+    height: 52px;
+    margin: 0;
     place-items: center;
-    border: 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 0;
-    background:
-      linear-gradient(180deg, rgba(3, 5, 8, 0.42), rgba(3, 5, 8, 0.95)),
-      rgba(3, 5, 8, 0.92);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(3, 5, 8, 0.92);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.36);
     transform: none;
   }
 
   .report-close svg {
     width: 24px;
     height: 24px;
-    padding: 7px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
+    padding: 0;
+    border: 0;
+    background: transparent;
   }
 
   .report-panel h2 {

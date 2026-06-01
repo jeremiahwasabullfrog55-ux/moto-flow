@@ -332,7 +332,11 @@ const flipDuration = 680;
 const flipMidpoint = flipDuration / 2;
 const expandSettleDelay = 980;
 const collapseDuration = 980;
+const carouselMediaWindow = 2;
+const reflectionMediaWindow = 1;
+const expandedMediaWindow = 3;
 const imageExtensions = ["jpg", "jpeg", "png", "webp"];
+const videoExtensions = ["mp4", "mov", "m4v", "webm"];
 const ambientProgression = [
   [174.61, 220.0, 261.63, 329.63],
   [146.83, 196.0, 246.94, 293.66],
@@ -482,15 +486,22 @@ function renderCarousel() {
     caption.querySelector("strong").textContent = album.title;
     caption.querySelector("span").textContent = album.year;
     activePhotoIndexes[index] = mediaIndex;
+    const shouldLoadCardMedia = index === activeIndex || (!isExpanded && abs <= carouselMediaWindow) || (isExpanded && abs <= 1);
+    const shouldLoadReflection = shouldLoadCardMedia && !isExpanded && abs <= reflectionMediaWindow;
+
     if (isExpanded && index === activeIndex) {
       renderCoverMediaCarousel(cover, album, index);
     } else {
       cover.dataset.mediaCarouselAlbum = "";
       cover.dataset.mediaCarouselCount = "";
       cover.classList.remove("has-media-carousel", "has-video");
-      applyVisual(cover, mediaItems[mediaIndex], album.placeholder);
+      applyDeferredVisual(cover, mediaItems[mediaIndex], album.placeholder, shouldLoadCardMedia);
     }
-    renderReflection(reflection, mediaItems[mediaIndex], album.placeholder, cover);
+    if (shouldLoadReflection) {
+      renderReflection(reflection, mediaItems[mediaIndex], album.placeholder);
+    } else {
+      applyDeferredVisual(reflection, mediaItems[mediaIndex], album.placeholder, false);
+    }
     cover.classList.add("is-selected-photo");
   });
 
@@ -558,26 +569,16 @@ function shouldPlayVisual(element) {
 function syncVideoPlayback() {
   document.querySelectorAll(".cover video, .cover-slide video, .feature-picture video, .mini-picture video, .blueprint-visual video").forEach((video) => {
     const holder = video.closest(".cover-slide, .cover, .feature-picture, .mini-picture, .blueprint-visual");
-    const shouldPlay = holder && shouldPlayVisual(holder);
+    const isMainVisual = holder && shouldPlayVisual(holder);
 
-    video.controls = shouldPlay;
+    video.controls = Boolean(isMainVisual);
     video.loop = true;
     video.playsInline = true;
 
-    if (shouldPlay) {
-      video.muted = true;
-      const playPromise = video.play();
-
-      if (playPromise) {
-        playPromise.catch(() => {
-          video.muted = true;
-          video.play().catch(() => {});
-        });
-      }
-      return;
-    }
+    if (isMainVisual) return;
 
     video.pause();
+    video.currentTime = 0;
   });
 }
 
@@ -617,12 +618,11 @@ function renderCoverMediaCarousel(cover, album, albumIndex) {
 
         updateActivePhoto(index, true, slot);
       });
-      applyVisual(slide, item, album.placeholder);
       track.append(slide);
     });
   }
 
-  updateIntegratedMediaState(cover, activePhotoIndex, items.length);
+  updateIntegratedMediaState(cover, album, items, activePhotoIndex);
   renderMediaScrubber(album, activePhotoIndex, items.length);
 }
 
@@ -658,12 +658,14 @@ function renderMediaScrubberInto(container, album, activePhotoIndex, total) {
   });
 }
 
-function updateIntegratedMediaState(cover, activePhotoIndex, total) {
+function updateIntegratedMediaState(cover, album, items, activePhotoIndex) {
+  const total = items.length;
   const previousPhotoIndex = Number(cover.dataset.previousPhotoIndex);
   const hasPreviousPhoto = Number.isFinite(previousPhotoIndex) && previousPhotoIndex !== activePhotoIndex;
 
   Array.from(cover.querySelectorAll(".cover-slide")).forEach((element, index) => {
     const slot = getPictureSlot(index, activePhotoIndex, total);
+    const shouldLoad = Math.abs(slot) <= expandedMediaWindow || index === previousPhotoIndex;
 
     element.style.setProperty("--slot", slot);
     element.style.setProperty("--depth", Math.max(0, 3 - Math.abs(slot)));
@@ -671,18 +673,63 @@ function updateIntegratedMediaState(cover, activePhotoIndex, total) {
     element.classList.toggle("active", index === activePhotoIndex);
     element.classList.toggle("leaving", hasPreviousPhoto && index === previousPhotoIndex);
     element.setAttribute("aria-hidden", String(index !== activePhotoIndex && Math.abs(slot) > 3));
+    applyDeferredVisual(element, items[index], album.placeholder, shouldLoad);
   });
 
   cover.dataset.activePhotoIndex = String(activePhotoIndex);
 }
 
-function applyVisual(element, item, fallbackStyle) {
-  const fallbacks = [...(item.fallbacks || [])];
-  const visualKey = `${item.type}:${item.src || (item.style || fallbackStyle).join("|")}`;
+function applyDeferredVisual(element, item, fallbackStyle, shouldLoad) {
+  if (shouldLoad) {
+    applyVisual(element, item, fallbackStyle);
+    return;
+  }
+
+  const visualKey = `deferred:${item.type}:${item.src || (item.style || fallbackStyle).join("|")}`;
 
   element.classList.toggle("has-media", item.type !== "placeholder");
-  element.classList.toggle("has-video", item.type === "video");
+  element.classList.toggle("has-video", false);
   applyPictureStyle(element, item.style || fallbackStyle);
+
+  if (element.dataset.visualKey === visualKey) return;
+
+  element.replaceChildren();
+  element.dataset.visualKey = visualKey;
+}
+
+function getOptimizedMediaItem(item) {
+  if (!item.src || item.useOriginal) return item;
+
+  const normalizedSrc = item.src.replace(/\\/g, "/");
+
+  if (!normalizedSrc.startsWith("assets/")) return item;
+
+  const extension = normalizedSrc.split(".").pop()?.toLowerCase();
+  const isOptimizableImage = item.type === "image" && imageExtensions.includes(extension);
+  const isOptimizableVideo = item.type === "video" && videoExtensions.includes(extension);
+
+  if (!isOptimizableImage && !isOptimizableVideo) return item;
+
+  const optimizedSrc = `assets/optimized/${normalizedSrc.slice("assets/".length).replace(/\.[^/.]+$/, isOptimizableImage ? ".webp" : ".mp4")}`;
+
+  return {
+    ...item,
+    src: optimizedSrc,
+    fallbacks: [
+      { ...item, useOriginal: true, fallbacks: [] },
+      ...(item.fallbacks || []),
+    ],
+  };
+}
+
+function applyVisual(element, item, fallbackStyle) {
+  const mediaItem = getOptimizedMediaItem(item);
+  const fallbacks = [...(mediaItem.fallbacks || [])];
+  const visualKey = `${mediaItem.type}:${mediaItem.src || (mediaItem.style || fallbackStyle).join("|")}`;
+
+  element.classList.toggle("has-media", mediaItem.type !== "placeholder");
+  element.classList.toggle("has-video", mediaItem.type === "video");
+  applyPictureStyle(element, mediaItem.style || fallbackStyle);
 
   if (element.dataset.visualKey === visualKey) {
     return;
@@ -691,10 +738,10 @@ function applyVisual(element, item, fallbackStyle) {
   element.replaceChildren();
   element.dataset.visualKey = visualKey;
 
-  if (item.type === "image") {
+  if (mediaItem.type === "image") {
     const image = document.createElement("img");
 
-    image.src = encodeURI(item.src);
+    image.src = encodeURI(mediaItem.src);
     image.alt = "";
     image.loading = "lazy";
     image.addEventListener("error", () => {
@@ -710,16 +757,16 @@ function applyVisual(element, item, fallbackStyle) {
     element.append(image);
   }
 
-  if (item.type === "video") {
+  if (mediaItem.type === "video") {
     const video = document.createElement("video");
     const shouldPlay = shouldPlayVisual(element);
 
-    video.src = encodeURI(item.src);
-    video.muted = true;
+    video.src = encodeURI(mediaItem.src);
+    video.muted = false;
     video.loop = true;
     video.playsInline = true;
     video.controls = shouldPlay;
-    video.autoplay = shouldPlay;
+    video.autoplay = false;
     video.preload = "metadata";
     video.addEventListener("click", (event) => event.stopPropagation());
     video.addEventListener("pointerdown", (event) => event.stopPropagation());
@@ -739,15 +786,20 @@ function applyVisual(element, item, fallbackStyle) {
   }
 }
 
-function renderReflection(element, item, fallbackStyle, sourceElement) {
+function renderReflection(element, item, fallbackStyle) {
   if (!element) return;
 
-  const visualKey = `${item.type}:${item.src || (item.style || fallbackStyle).join("|")}`;
-  const sourceMedia = sourceElement?.querySelector(":scope > img, :scope > video");
+  if (item.type === "video") {
+    applyDeferredVisual(element, item, fallbackStyle, false);
+    return;
+  }
+
+  const mediaItem = getOptimizedMediaItem(item);
+  const visualKey = `${mediaItem.type}:${mediaItem.src || (mediaItem.style || fallbackStyle).join("|")}`;
   const hasRenderedMedia = element.querySelector("img, video");
 
-  element.classList.toggle("has-media", item.type !== "placeholder");
-  applyPictureStyle(element, item.style || fallbackStyle);
+  element.classList.toggle("has-media", mediaItem.type !== "placeholder");
+  applyPictureStyle(element, mediaItem.style || fallbackStyle);
 
   if (element.dataset.visualKey === visualKey && hasRenderedMedia) {
     return;
@@ -756,66 +808,27 @@ function renderReflection(element, item, fallbackStyle, sourceElement) {
   element.replaceChildren();
   element.dataset.visualKey = visualKey;
 
-  if (sourceMedia && item.type === "video") {
-    const clone = sourceMedia.cloneNode();
-
-    clone.removeAttribute("controls");
-    clone.removeAttribute("autoplay");
-    clone.removeAttribute("loading");
-    clone.setAttribute("aria-hidden", "true");
-
-    if (clone.tagName === "IMG") {
-      clone.decoding = "async";
-      clone.loading = "eager";
-    }
-
-    if (clone.tagName === "VIDEO") {
-      clone.muted = true;
-      clone.loop = true;
-      clone.playsInline = true;
-      clone.autoplay = true;
-      clone.preload = "metadata";
-      clone.play?.().catch(() => {});
-    }
-
-    element.append(clone);
-    return;
-  }
-
-  if (item.type === "image") {
+  if (mediaItem.type === "image") {
     const image = document.createElement("img");
+    const fallbacks = [...(mediaItem.fallbacks || [])];
 
-    image.src = encodeURI(item.src);
+    image.src = encodeURI(mediaItem.src);
     image.alt = "";
-    image.loading = "eager";
+    image.loading = "lazy";
+    image.decoding = "async";
+    image.decoding = "async";
     image.decoding = "async";
     image.addEventListener("error", () => {
-      const fallback = item.fallbacks?.[0];
+      const fallback = fallbacks.shift();
 
       if (fallback) {
-        renderReflection(element, { ...fallback, fallbacks: item.fallbacks.slice(1) }, fallbackStyle, sourceElement);
+        renderReflection(element, { ...fallback, fallbacks }, fallbackStyle);
         return;
       }
 
-      renderReflection(element, { type: "placeholder", style: fallbackStyle }, fallbackStyle, sourceElement);
-    }, { once: true });
-    element.append(image);
-  }
-
-  if (item.type === "video") {
-    const video = document.createElement("video");
-
-    video.src = encodeURI(item.src);
-    video.muted = true;
-    video.loop = true;
-    video.playsInline = true;
-    video.autoplay = true;
-    video.preload = "metadata";
-    video.addEventListener("error", () => {
       renderReflection(element, { type: "placeholder", style: fallbackStyle }, fallbackStyle);
     }, { once: true });
-    element.append(video);
-    video.play().catch(() => {});
+    element.append(image);
   }
 }
 
