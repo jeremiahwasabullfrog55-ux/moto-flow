@@ -2,7 +2,6 @@ const albums = [
   {
     artist: "Honda Touring Project",
     title: "Honda Goldwing",
-    codename: "The Flatliner",
     assetFolder: "assets/1970 gl000 goldwing",
     mainPanel: { type: "image", src: "assets/1970 gl000 goldwing/mainpanel.jpg" },
     blueprint: { type: "image", src: "assets/1970 gl000 goldwing/blueprint.png" },
@@ -40,7 +39,6 @@ const albums = [
   {
     artist: "Honda Standard Build",
     title: "Honda CB900",
-    codename: "Ten-Speed Undertaker",
     assetFolder: "assets/1980 cb900",
     mainPanel: { type: "image", src: "assets/1980 cb900/DSC_0042.JPG" },
     blueprint: { type: "image", src: "assets/1980 cb900/blueprint.png" },
@@ -77,7 +75,6 @@ const albums = [
   {
     artist: "Kawasaki Cruiser Project",
     title: "Kawasaki LTD 750",
-    codename: "Chrome Chupacabra",
     assetFolder: "assets/1981 kawasaki ltd 750",
     mainPanel: { type: "image", src: "assets/1981 kawasaki ltd 750/mainpanel.jpg" },
     blueprint: { type: "image", src: "assets/1981 kawasaki ltd 750/blueprint.png" },
@@ -112,7 +109,6 @@ const albums = [
   {
     artist: "Yamaha Triple Project",
     title: "Yamaha XS850",
-    codename: "Triple Trouble",
     assetFolder: "assets/1981 yamaha xs850",
     mainPanel: { type: "image", src: "assets/1981 yamaha xs850/mainpanel.jpg" },
     blueprint: { type: "image", src: "assets/1981 yamaha xs850/blueprint.png" },
@@ -144,7 +140,6 @@ const albums = [
   {
     artist: "Honda V4 Project",
     title: "Honda Magna",
-    codename: "V4 Valkyrie",
     assetFolder: "assets/1983 magna",
     mainPanel: { type: "image", src: "assets/1983 magna/789773988.jpg" },
     detail: "A V4 muscle-cruiser with low-slung styling, strong eighties energy, and a more aggressive personality than a typical cruiser.",
@@ -174,7 +169,6 @@ const albums = [
   {
     artist: "Honda Touring Project",
     title: "Honda Goldwing 1500",
-    codename: "Highway Leviathan",
     assetFolder: "assets/1989 goldwing 1500",
     mainPanel: { type: "image", src: "assets/1989 goldwing 1500/mainpanel.jpg" },
     blueprint: { type: "image", src: "assets/1989 goldwing 1500/blueprint.png" },
@@ -202,7 +196,6 @@ const albums = [
   {
     artist: "Small Displacement Project",
     title: "Roketa JL250P",
-    codename: "Mini Mothman",
     assetFolder: "assets/2010 roketa jl250p",
     mainPanel: { type: "image", src: "assets/2010 roketa jl250p/mainpanel.jpeg" },
     blueprint: { type: "image", src: "assets/2010 roketa jl250p/blueprint.png" },
@@ -260,7 +253,6 @@ const interestPanel = document.querySelector("#interestPanel");
 const closeInterestPanel = interestPanel.querySelector(".close-panel");
 const galleryPage = document.querySelector(".gallery-page");
 const desktopCopy = document.querySelector("#desktopCopy");
-const codenamePanel = document.querySelector("#codenamePanel");
 const desktopFeature = document.querySelector(".feature-picture");
 const desktopPictures = document.querySelector("#desktopPictures");
 const mobileDrawer = document.querySelector("#mobileDrawer");
@@ -288,9 +280,6 @@ let expandedMusicStep = 0;
 let isMusicPlaying = false;
 let isUsingCustomTrack = false;
 let reportCloseTimer;
-let codenameClickCount = 0;
-let codenameClickTimer;
-let codenameAnimationTimer;
 const doorDurationMs = 1450;
 const doorSoundOffsetSeconds = 2;
 const doorSoundTailMs = 140;
@@ -301,7 +290,6 @@ let activeBackgroundTrack = null;
 const backgroundFadeTimers = new Map();
 let backgroundSwitchTimer;
 let beatTransitionTimer;
-let secretDiscoTimer;
 let bikeTitleSoundTimer;
 let bikeTitleTapTimer;
 let isSfxUnlocked = false;
@@ -313,7 +301,6 @@ const audioLibrary = {
     main: new Audio("music/main.wav"),
     expanded: new Audio("music/expanded.wav"),
     report: new Audio("music/report.wav"),
-    secret: new Audio("music/secretname.mp3"),
   },
   sfx: {
     whoosh: new Audio("music/whoosh.mp3"),
@@ -368,7 +355,6 @@ const backgroundBaseVolumes = new Map(Object.entries({
   main: 0.2,
   expanded: 0.62,
   report: 0.62,
-  secret: 0.62,
 }).map(([name, volume]) => [audioLibrary.background[name], volume]));
 
 const expandedProgression = [
@@ -376,22 +362,6 @@ const expandedProgression = [
   [246.94, 369.99, 493.88, 739.99],
   [196.0, 293.66, 392.0, 587.33],
   [207.65, 311.13, 415.3, 622.25],
-];
-
-const codenameWarnings = [
-  "please don't click",
-  "ok for real this time",
-  "oh now you've done it",
-];
-
-const codenameStyles = [
-  { font: "'Chiller', 'Creepster', 'Papyrus', fantasy", color: "#d8dde8", glow: "rgba(216, 221, 232, 0.72)", angle: "-8deg", stretch: "1.18" },
-  { font: "'Showcard Gothic', 'Cooper Black', 'Arial Black', fantasy", color: "#7cffb2", glow: "rgba(124, 255, 178, 0.68)", angle: "5deg", stretch: "1.08" },
-  { font: "'Jokerman', 'Curlz MT', 'Cooper Black', fantasy", color: "#ffcf5a", glow: "rgba(255, 207, 90, 0.72)", angle: "-11deg", stretch: "1.2" },
-  { font: "'Ravie', 'Wide Latin', 'Arial Black', fantasy", color: "#ff5f7a", glow: "rgba(255, 95, 122, 0.72)", angle: "8deg", stretch: "0.96" },
-  { font: "'Old English Text MT', 'Blackadder ITC', 'Georgia', serif", color: "#9fc7ff", glow: "rgba(159, 199, 255, 0.72)", angle: "-5deg", stretch: "1.12" },
-  { font: "'Algerian', 'Copperplate Gothic Bold', 'Impact', fantasy", color: "#5fe7ff", glow: "rgba(95, 231, 255, 0.7)", angle: "7deg", stretch: "1.14" },
-  { font: "'Freestyle Script', 'Brush Script MT', 'Comic Sans MS', cursive", color: "#d684ff", glow: "rgba(214, 132, 255, 0.76)", angle: "-12deg", stretch: "1.26" },
 ];
 
 function buildGalleryShell() {
@@ -1290,110 +1260,9 @@ function setBackgroundTrack(trackName, { restart = false } = {}) {
 }
 
 function currentSectionTrack() {
-  if (document.body.classList.contains("is-secret-disco")) return "secret";
   if (reportPanel.open) return "report";
   if (isExpanded) return "expanded";
   return "main";
-}
-
-function currentSectionTrackWithoutSecret() {
-  if (reportPanel.open) return "report";
-  if (isExpanded) return "expanded";
-  return "main";
-}
-
-function clearSecretMode({ restoreTrack = true } = {}) {
-  const wasSecretMode =
-    document.body.classList.contains("is-secret-disco") ||
-    backgroundTrackName === "secret" ||
-    activeBackgroundTrack === audioLibrary.background.secret;
-
-  document.body.classList.remove("is-secret-disco");
-  window.clearTimeout(secretDiscoTimer);
-
-  if (restoreTrack && wasSecretMode) {
-    setBackgroundTrack(currentSectionTrackWithoutSecret());
-  }
-}
-
-function triggerSecretDisco() {
-  document.body.classList.add("is-secret-disco");
-  window.clearTimeout(secretDiscoTimer);
-}
-
-function playCodenameSfx(stage) {
-  if (!isMusicPlaying || !audioContext || audioContext.state !== "running") return;
-
-  const now = audioContext.currentTime;
-  const output = audioContext.createGain();
-  const rev = audioContext.createOscillator();
-  const rasp = audioContext.createOscillator();
-  const revGain = audioContext.createGain();
-  const revFilter = audioContext.createBiquadFilter();
-
-  output.gain.value = stage === 3 ? 1.05 : 0.82;
-  rev.type = "sawtooth";
-  rasp.type = "square";
-  revFilter.type = "bandpass";
-  revFilter.frequency.setValueAtTime(stage === 3 ? 860 : 720, now);
-  revFilter.Q.value = stage === 3 ? 2.6 : 1.9;
-  rev.frequency.setValueAtTime(stage === 1 ? 72 : stage === 2 ? 86 : 96, now);
-  rev.frequency.exponentialRampToValueAtTime(stage === 1 ? 170 : stage === 2 ? 240 : 310, now + 0.16);
-  rev.frequency.exponentialRampToValueAtTime(stage === 1 ? 96 : stage === 2 ? 118 : 62, now + 0.36);
-  rasp.frequency.setValueAtTime(stage === 1 ? 144 : stage === 2 ? 172 : 192, now);
-  rasp.frequency.exponentialRampToValueAtTime(stage === 1 ? 340 : stage === 2 ? 480 : 620, now + 0.16);
-  rasp.frequency.exponentialRampToValueAtTime(stage === 1 ? 190 : stage === 2 ? 220 : 88, now + 0.36);
-  revGain.gain.setValueAtTime(0.0001, now);
-  revGain.gain.exponentialRampToValueAtTime(stage === 3 ? 0.62 : 0.48, now + 0.018);
-  revGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
-  rev.connect(revFilter);
-  rasp.connect(revFilter);
-  revFilter.connect(revGain);
-  revGain.connect(output);
-  output.connect(musicGain);
-  output.connect(musicDelay);
-  rev.start(now);
-  rasp.start(now);
-  rev.stop(now + 0.45);
-  rasp.stop(now + 0.45);
-
-  if (stage === 3) {
-    const boom = audioContext.createOscillator();
-    const boomGain = audioContext.createGain();
-    const length = Math.floor(audioContext.sampleRate * 0.36);
-    const buffer = audioContext.createBuffer(1, length, audioContext.sampleRate);
-    const data = buffer.getChannelData(0);
-    const burst = audioContext.createBufferSource();
-    const burstGain = audioContext.createGain();
-    const burstFilter = audioContext.createBiquadFilter();
-
-    for (let index = 0; index < length; index += 1) {
-      data[index] = (Math.random() * 2 - 1) * (1 - index / length);
-    }
-
-    burst.buffer = buffer;
-    boom.type = "sine";
-    boom.frequency.setValueAtTime(82, now + 0.12);
-    boom.frequency.exponentialRampToValueAtTime(34, now + 0.52);
-    boomGain.gain.setValueAtTime(0.0001, now + 0.1);
-    boomGain.gain.exponentialRampToValueAtTime(0.9, now + 0.13);
-    boomGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.62);
-    burstFilter.type = "lowpass";
-    burstFilter.frequency.setValueAtTime(3600, now + 0.12);
-    burstFilter.frequency.exponentialRampToValueAtTime(520, now + 0.5);
-    burstFilter.Q.value = 0.7;
-    burstGain.gain.setValueAtTime(0.0001, now + 0.12);
-    burstGain.gain.exponentialRampToValueAtTime(1.0, now + 0.135);
-    burstGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.58);
-    boom.connect(boomGain);
-    boomGain.connect(output);
-    burst.connect(burstFilter);
-    burstFilter.connect(burstGain);
-    burstGain.connect(output);
-    boom.start(now + 0.12);
-    boom.stop(now + 0.66);
-    burst.start(now + 0.12);
-  }
 }
 
 function scheduleAmbientPhrase() {
@@ -1486,8 +1355,6 @@ async function toggleMusic() {
     track.pause();
     track.currentTime = 0;
   });
-  document.body.classList.remove("is-secret-disco");
-  window.clearTimeout(secretDiscoTimer);
 }
 
 function animatePhotoFlip(cover, swapFace, flipClass) {
@@ -1549,26 +1416,9 @@ function renderAlbumPanels(album) {
   const mediaItems = getMediaItems(album);
   const photoIndex = activePhotoIndexes[activeIndex] % mediaItems.length;
   const selectedPhoto = mediaItems[photoIndex];
-  const codenameStyle = codenameStyles[activeIndex % codenameStyles.length];
 
   desktopCopy.querySelector("h2").textContent = album.title;
   desktopCopy.querySelector(".bike-detail").textContent = album.detail;
-  if (codenamePanel) {
-    if (codenamePanel.classList.contains("revealed") || document.body.classList.contains("is-secret-disco")) {
-      clearSecretMode();
-    }
-    codenamePanel.classList.remove("armed", "half-flipped", "revealed", "bounce-one", "bounce-two", "bounce-three");
-    codenamePanel.style.setProperty("--codename-color", codenameStyle.color);
-    codenamePanel.style.setProperty("--codename-glow", codenameStyle.glow);
-    codenamePanel.style.setProperty("--codename-font", codenameStyle.font);
-    codenamePanel.style.setProperty("--codename-angle", codenameStyle.angle);
-    codenamePanel.style.setProperty("--codename-stretch", codenameStyle.stretch);
-    codenamePanel.querySelector(".codename-front").textContent = codenameWarnings[0];
-    codenamePanel.querySelector(".codename-back strong").textContent = album.codename;
-    codenameClickCount = 0;
-    window.clearTimeout(codenameClickTimer);
-    window.clearTimeout(codenameAnimationTimer);
-  }
   const stats = Array.from(desktopCopy.querySelectorAll("dd"));
   stats[0].textContent = album.year;
   stats[1].textContent = album.mood;
@@ -1722,9 +1572,6 @@ function setExpanded(nextExpanded) {
 
   playSfx(nextExpanded ? audioLibrary.sfx.open : audioLibrary.sfx.close);
   isExpanded = nextExpanded;
-  if (!nextExpanded) {
-    clearSecretMode({ restoreTrack: false });
-  }
   mobileDrawer.dataset.mode = "none";
   galleryPage.classList.remove("is-settled");
   setBackgroundTrack(nextExpanded ? "expanded" : "main");
@@ -1758,52 +1605,6 @@ function cycleActivePhoto() {
   const nextPhotoIndex = (activePhotoIndexes[activeIndex] + 1) % getMediaItems(album).length;
 
   updateActivePhoto(nextPhotoIndex);
-}
-
-function advanceCodenamePanel(event) {
-  event.stopPropagation();
-  if (!isExpanded || !codenamePanel) return;
-
-  if (codenamePanel.classList.contains("revealed")) return;
-
-  codenameClickCount += 1;
-  window.clearTimeout(codenameClickTimer);
-  window.clearTimeout(codenameAnimationTimer);
-  codenamePanel.classList.remove("bounce-one", "bounce-two", "bounce-three", "half-flipped");
-  codenamePanel.querySelector(".codename-front").textContent = codenameWarnings[Math.min(codenameClickCount - 1, codenameWarnings.length - 1)];
-  void codenamePanel.offsetWidth;
-  codenamePanel.classList.add("armed", `bounce-${["one", "two", "three"][Math.min(codenameClickCount, 3) - 1]}`);
-  codenamePanel.classList.toggle("half-flipped", codenameClickCount === 2);
-  if (codenameClickCount >= 3) {
-    playSfx(audioLibrary.sfx.boom);
-  } else {
-    playSfx(audioLibrary.sfx.slap);
-  }
-
-  if (codenameClickCount >= 3) {
-    window.setTimeout(() => {
-      codenamePanel.classList.add("revealed");
-      codenamePanel.classList.remove("half-flipped", "bounce-three");
-      window.clearTimeout(secretDiscoTimer);
-      setBackgroundTrack("secret", { restart: true });
-      triggerSecretDisco();
-    }, 560);
-    codenameClickCount = 0;
-    return;
-  }
-
-  codenameAnimationTimer = window.setTimeout(() => {
-    codenamePanel.classList.remove("armed", "half-flipped", "bounce-one", "bounce-two");
-    if (codenameClickCount > 0) {
-      codenamePanel.querySelector(".codename-front").textContent = codenameWarnings[Math.min(codenameClickCount, codenameWarnings.length - 1)];
-    }
-  }, codenameClickCount === 1 ? 540 : 620);
-
-  codenameClickTimer = window.setTimeout(() => {
-    codenameClickCount = 0;
-    codenamePanel.querySelector(".codename-front").textContent = codenameWarnings[0];
-    codenamePanel.classList.remove("armed", "half-flipped", "bounce-one", "bounce-two");
-  }, 950);
 }
 
 function setMobileDrawer(mode) {
@@ -1842,9 +1643,6 @@ expandedClose.addEventListener("click", (event) => {
 });
 closeContactPanel.addEventListener("click", closeContact);
 closeInterestPanel.addEventListener("click", closeInterest);
-if (codenamePanel) {
-  codenamePanel.addEventListener("click", advanceCodenamePanel);
-}
 if (closeReportPanel) {
   closeReportPanel.addEventListener("click", () => closeReport());
 }
@@ -2000,7 +1798,6 @@ interestPanel.addEventListener("cancel", (event) => {
 function openReport() {
   const album = albums[activeIndex];
   playOpenSfx();
-  clearSecretMode({ restoreTrack: false });
   setBackgroundTrack("report", { restart: true });
 
   document.querySelector("#reportHistory").textContent = album.report.history;
@@ -2088,6 +1885,10 @@ carousel.addEventListener("pointerdown", (event) => {
   pointerStartY = event.clientY;
 });
 
+carousel.addEventListener("touchmove", (event) => {
+  if (event.cancelable) event.preventDefault();
+}, { passive: false });
+
 carousel.addEventListener("pointerup", (event) => {
   const deltaX = event.clientX - pointerStartX;
   const deltaY = event.clientY - pointerStartY;
@@ -2106,7 +1907,10 @@ carousel.addEventListener("pointerup", (event) => {
 });
 
 carousel.addEventListener("wheel", (event) => {
-  if (Math.abs(event.deltaX) < 6 && Math.abs(event.deltaY) < 6) return;
+  const absX = Math.abs(event.deltaX);
+  const absY = Math.abs(event.deltaY);
+
+  if (absX < 6 && absY < 6) return;
 
   event.preventDefault();
   if (wheelTimer) return;
@@ -2115,8 +1919,9 @@ carousel.addEventListener("wheel", (event) => {
     const direction = event.deltaY > 0 ? 1 : -1;
     updateActivePhoto(activePhotoIndexes[activeIndex] + direction, true, direction);
   } else {
-    const direction = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-    showAlbum(activeIndex + (direction > 0 ? 1 : -1));
+    if (absX <= absY || absX < 16) return;
+
+    showAlbum(activeIndex + (event.deltaX > 0 ? 1 : -1));
   }
 
   wheelTimer = window.setTimeout(() => {
